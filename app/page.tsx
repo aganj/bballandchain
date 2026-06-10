@@ -25,6 +25,9 @@ export default function Game() {
   
   const [timeLeft, setTimeLeft] = useState(100);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // NEW: Ref to store the exact real-world timestamp the round should end
+  const targetTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetch(`/active_nba_game_data.json?t=${new Date().getTime()}`)
@@ -39,17 +42,22 @@ export default function Game() {
       });
   }, []);
 
+  // UPDATED: Timer now checks actual real-world time against targetTimeRef
   useEffect(() => {
     if (gameState === 'playing') {
       timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 0) {
-            handleGameOver();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 100);
+        if (!targetTimeRef.current) return;
+        
+        const now = Date.now();
+        const remainingMs = Math.max(0, targetTimeRef.current - now);
+        const remainingDeciseconds = Math.ceil(remainingMs / 100);
+        
+        setTimeLeft(remainingDeciseconds);
+
+        if (remainingDeciseconds <= 0) {
+          handleGameOver();
+        }
+      }, 50); // Run slightly faster than 100ms so UI updates feel perfectly smooth
     }
     return () => clearInterval(timerRef.current as NodeJS.Timeout);
   }, [gameState]);
@@ -103,6 +111,9 @@ export default function Game() {
 
     const roundChoices = [correct, ...decoys].sort(() => Math.random() - 0.5);
     setChoices(roundChoices);
+    
+    // NEW: Set the absolute expiration time (Current time + 10 seconds)
+    targetTimeRef.current = Date.now() + 10000;
     setTimeLeft(100);
   };
 
@@ -121,6 +132,7 @@ export default function Game() {
 
   const handleGameOver = () => {
     setGameState('gameover');
+    targetTimeRef.current = null;
     clearInterval(timerRef.current as NodeJS.Timeout);
   };
 
@@ -186,11 +198,9 @@ export default function Game() {
         {gameState === 'start' && (
           <div className="flex flex-col items-center justify-center h-full w-full animate-in fade-in zoom-in duration-500 pb-10">
             <div className="relative w-full">
-              {/* Abstract glowing background behind the card */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
               
               <Card className="w-full border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-                {/* Tech grid overlay */}
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
                 
                 <CardHeader className="text-center pt-12 pb-6 relative z-10">
@@ -217,60 +227,58 @@ export default function Game() {
         {gameState === 'playing' && currentId && (
           <div className="flex flex-col flex-1 h-full animate-in fade-in slide-in-from-bottom-4 duration-300">
             
-            {/* Authentic Hardware Shot Clock (Scaled Down) */}
-            <div className="flex flex-col items-center justify-center w-full flex-shrink-0 mt-2 mb-2">
-              <div className="bg-[#0a0000] border-[4px] sm:border-[6px] border-zinc-900 rounded-md px-5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.9),inset_0_0_15px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
-                {/* Angled Glass Reflection */}
-                <div className="absolute top-0 left-0 w-full h-[45%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-                {/* Subtle internal red reflection */}
-                <div className="absolute inset-0 bg-red-500/5 pointer-events-none"></div>
-                
-                <div className="w-full text-center flex items-center justify-center mt-1">
-                  <span 
-                    className={`font-mono font-black text-4xl sm:text-5xl tabular-nums leading-none tracking-tighter text-[#ff1111] relative z-10 ${timeLeft < 30 ? 'animate-pulse' : ''}`}
-                    style={{ textShadow: '0 0 10px rgba(255,0,0,0.8), 0 0 20px rgba(255,0,0,0.4)' }}
-                  >
-                    {Math.ceil(timeLeft / 10)}
-                  </span>
+            <div className="flex flex-col items-center justify-center flex-1 w-full pb-6 sm:pb-12">
+              
+              <div className="flex flex-col items-center justify-center w-full flex-shrink-0 mb-6 sm:mb-8">
+                <div className="bg-[#0a0000] border-[4px] sm:border-[6px] border-zinc-900 rounded-md px-5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.9),inset_0_0_15px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
+                  <div className="absolute top-0 left-0 w-full h-[45%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-red-500/5 pointer-events-none"></div>
+                  <div className="w-full text-center flex items-center justify-center mt-1">
+                    <span 
+                      className={`font-mono font-black text-4xl sm:text-5xl tabular-nums leading-none tracking-tighter text-[#ff1111] relative z-10 ${timeLeft < 30 ? 'animate-pulse' : ''}`}
+                      style={{ textShadow: '0 0 10px rgba(255,0,0,0.8), 0 0 20px rgba(255,0,0,0.4)' }}
+                    >
+                      {Math.ceil(timeLeft / 10)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-              
-              <div className="flex flex-col items-center space-y-2 flex-shrink-0">
-                <p className="text-xs sm:text-sm font-bold text-zinc-500 uppercase tracking-widest">Who played with</p>
-                <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-zinc-900 shadow-2xl ring-4 ring-zinc-800 bg-zinc-900 overflow-hidden isolate relative translate-z-0">
-                  <AvatarImage 
-                    src={`https://cdn.nba.com/headshots/nba/latest/260x190/${currentId}.png`} 
-                    className="object-cover scale-[1.3] translate-y-3"
-                    onError={handleImageError}
-                  />
-                  <AvatarFallback className="bg-zinc-800 text-zinc-500 text-3xl font-bold">{gameData.players[currentId].charAt(0)}</AvatarFallback>
-                </Avatar>
-                <h2 className="text-2xl sm:text-3xl font-black text-zinc-100 text-center tracking-tight leading-tight">{gameData.players[currentId]}</h2>
-              </div>
+              <div className="flex flex-col items-center w-full space-y-6">
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <p className="text-lg sm:text-xl font-black text-zinc-400 uppercase tracking-widest mb-4 sm:mb-5">Who played with</p>
+                  <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-zinc-900 shadow-2xl ring-4 ring-zinc-800 bg-zinc-900 overflow-hidden isolate relative translate-z-0">
+                    <AvatarImage 
+                      src={`https://cdn.nba.com/headshots/nba/latest/260x190/${currentId}.png`} 
+                      className="object-cover scale-[1.3] translate-y-3"
+                      onError={handleImageError}
+                    />
+                    <AvatarFallback className="bg-zinc-800 text-zinc-500 text-3xl font-bold">{gameData.players[currentId].charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-100 text-center tracking-tight leading-tight mt-2 sm:mt-3">{gameData.players[currentId]}</h2>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-sm sm:max-w-md mx-auto">
-                {choices.map(id => (
-                  <Card 
-                    key={id} 
-                    onClick={() => handleGuess(id)}
-                    className="group cursor-pointer border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-blue-500/50 transition-all duration-200 active:scale-[0.97] overflow-hidden shadow-md"
-                  >
-                    <CardContent className="p-3 sm:p-5 flex flex-col items-center justify-center gap-2 sm:gap-3">
-                      <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-2 border-zinc-800 bg-zinc-950 group-hover:ring-2 group-hover:ring-blue-500/50 overflow-hidden isolate relative translate-z-0">
-                        <AvatarImage 
-                          src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                          className="object-cover scale-[1.3] translate-y-3"
-                          onError={handleImageError}
-                        />
-                        <AvatarFallback className="bg-zinc-800 text-xs">NBA</AvatarFallback>
-                      </Avatar>
-                      <span className="font-bold text-sm sm:text-lg text-zinc-300 text-center leading-tight group-hover:text-white">{gameData.players[id]}</span>
-                    </CardContent>
-                  </Card>
-                ))}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-sm sm:max-w-md mx-auto">
+                  {choices.map(id => (
+                    <Card 
+                      key={id} 
+                      onClick={() => handleGuess(id)}
+                      className="group cursor-pointer border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-blue-500/50 transition-all duration-200 active:scale-[0.97] overflow-hidden shadow-md"
+                    >
+                      <CardContent className="p-3 sm:p-5 flex flex-col items-center justify-center gap-2 sm:gap-3">
+                        <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-2 border-zinc-800 bg-zinc-950 group-hover:ring-2 group-hover:ring-blue-500/50 overflow-hidden isolate relative translate-z-0">
+                          <AvatarImage 
+                            src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                            className="object-cover scale-[1.3] translate-y-3"
+                            onError={handleImageError}
+                          />
+                          <AvatarFallback className="bg-zinc-800 text-xs">NBA</AvatarFallback>
+                        </Avatar>
+                        <span className="font-bold text-sm sm:text-lg text-zinc-300 text-center leading-tight group-hover:text-white">{gameData.players[id]}</span>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
 
             </div>
