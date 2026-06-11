@@ -4,18 +4,27 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2, Link as LinkIcon } from "lucide-react";
+import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2 } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
-  network: Record<string, string[]>;
+  network: Record<string, Record<string, { teams: string[]; years: string[] }>>;
+};
+
+const TEAM_LOGOS: Record<string, string> = {
+  "ATL": "1610612737", "BOS": "1610612738", "CLE": "1610612739", "NOP": "1610612740",
+  "CHI": "1610612741", "DAL": "1610612742", "DEN": "1610612743", "GSW": "1610612744",
+  "HOU": "1610612745", "LAC": "1610612746", "LAL": "1610612747", "MIA": "1610612748",
+  "MIL": "1610612749", "MIN": "1610612750", "BKN": "1610612751", "NYK": "1610612752",
+  "ORL": "1610612753", "IND": "1610612754", "PHI": "1610612755", "PHX": "1610612756",
+  "POR": "1610612757", "SAC": "1610612758", "SAS": "1610612759", "OKC": "1610612760",
+  "TOR": "1610612761", "UTA": "1610612762", "MEM": "1610612763", "WAS": "1610612764",
+  "DET": "1610612765", "CHA": "1610612766"
 };
 
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  // Added 'victory' state type here
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -60,6 +69,12 @@ export default function Game() {
     return () => clearInterval(timerRef.current as NodeJS.Timeout);
   }, [gameState]);
 
+  const goHome = () => {
+    setGameState('start');
+    targetTimeRef.current = null;
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+
   const startGame = () => {
     if (!gameData) return;
     setStreak(0);
@@ -67,32 +82,36 @@ export default function Game() {
     
     const playerIds = Object.keys(gameData.network);
     let startId = playerIds[Math.floor(Math.random() * playerIds.length)];
-    while (gameData.network[startId].length === 0) {
+    
+    while (Object.keys(gameData.network[startId]).length === 0) {
       startId = playerIds[Math.floor(Math.random() * playerIds.length)];
     }
     
     setCurrentId(startId);
     setVisitedPlayers([startId]);
-    generateRound(startId, [startId]);
+    generateRound(startId, [startId], 0);
     setGameState('playing');
   };
 
-  const generateRound = (playerId: string, currentVisited: string[]) => {
+  const generateRound = (playerId: string, currentVisited: string[], currentStreak: number) => {
     if (!gameData) return;
     
-    const teammates = gameData.network[playerId];
+    const teammates = Object.keys(gameData.network[playerId]);
     let validTeammates = teammates.filter(id => !currentVisited.includes(id));
 
     if (currentVisited.length > 1) {
       const previousId = currentVisited[currentVisited.length - 2];
-      const previousTeammates = gameData.network[previousId];
+      const previousTeammates = Object.keys(gameData.network[previousId]);
       const jumpingTeammates = validTeammates.filter(id => !previousTeammates.includes(id));
       if (jumpingTeammates.length > 0) validTeammates = jumpingTeammates;
     }
 
-    // Handled perfect network clearing victory state here
     if (validTeammates.length === 0) {
-      setGameState('victory');
+      if (currentStreak >= 100) {
+        setGameState('victory');
+      } else {
+        setGameState('gameover');
+      }
       targetTimeRef.current = null;
       clearInterval(timerRef.current as NodeJS.Timeout);
       return;
@@ -124,7 +143,7 @@ export default function Game() {
       setStreak(newStreak);
       setCurrentId(id);
       setVisitedPlayers(newVisited);
-      generateRound(id, newVisited);
+      generateRound(id, newVisited, newStreak);
     } else {
       handleGameOver();
     }
@@ -184,8 +203,11 @@ export default function Game() {
     <div className="fixed inset-0 w-full overflow-hidden bg-zinc-950 text-zinc-100 flex flex-col items-center p-3 sm:p-6 font-sans selection:bg-blue-500/30">
       
       <header className="w-full max-w-xl flex justify-between items-center mb-4 flex-shrink-0 z-10 relative">
-        <div className="flex items-center gap-2 text-zinc-100">
-          <Link2 className="w-6 h-6 text-blue-500" />
+        <div 
+          onClick={goHome}
+          className="flex items-center gap-2 text-zinc-100 cursor-pointer hover:opacity-80 transition-opacity active:scale-95 group"
+        >
+          <Link2 className="w-6 h-6 text-blue-500 group-hover:rotate-12 transition-transform" />
           <span className="font-black text-xl md:text-2xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">BBall and Chain</span>
         </div>
         {gameState === 'playing' && (
@@ -292,7 +314,7 @@ export default function Game() {
         {/* Victory Screen */}
         {gameState === 'victory' && (
           <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
-            <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-4 overflow-hidden relative flex-shrink-0">
+            <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-3 overflow-hidden relative flex-shrink-0">
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
               <CardHeader className="text-center pt-6 pb-2">
                 <Trophy className="w-12 h-12 text-amber-500 mx-auto mb-2 animate-bounce" />
@@ -300,14 +322,14 @@ export default function Game() {
                   CHAMPION!
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-center pb-6">
-                <p className="text-zinc-400 text-xs sm:text-sm uppercase tracking-widest font-bold mb-3 max-w-xs mx-auto leading-relaxed">
+              <CardContent className="text-center pb-3 md:pb-4">
+                <p className="text-zinc-400 text-xs sm:text-sm uppercase tracking-widest font-bold mb-2 max-w-xs mx-auto leading-relaxed">
                   Unbelievable! You completely cleared the available network path!
                 </p>
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Final Perfect Streak</div>
-                <div className="text-6xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">{streak}</div>
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Perfect Streak</div>
+                <div className="text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">{streak}</div>
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 border-t border-zinc-800/50 pt-4 bg-amber-500/5">
+              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 md:pb-5 border-t border-zinc-800/50 pt-3 bg-amber-500/5">
                 <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-12 font-bold" onClick={startGame}>
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
@@ -317,27 +339,56 @@ export default function Game() {
               </CardFooter>
             </Card>
 
-            {/* Chain History Panel */}
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Winning Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-2 flex-1">
-                  {visitedPlayers.map((id, idx) => (
-                    <div key={id + idx} className="flex flex-col">
-                      <div className="flex items-center gap-3 p-2 hover:bg-zinc-800/50 rounded-lg">
-                        <Badge variant="outline" className="w-6 h-6 flex items-center justify-center p-0 border-amber-600/50 bg-zinc-950 text-amber-400 font-bold shrink-0">{idx + 1}</Badge>
-                        <Avatar className="w-10 h-10 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative">
-                          <AvatarImage 
-                            src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                            className="object-cover scale-[1.3] translate-y-1.5"
-                            onError={handleImageError}
-                          />
-                        </Avatar>
-                        <span className="font-bold text-sm sm:text-base text-zinc-200 truncate">{gameData.players[id]}</span>
+                <div className="overflow-y-auto custom-scrollbar p-4 flex-1">
+                  
+                  <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
+                    {visitedPlayers.length > 1 && (
+                      <div className="absolute top-6 bottom-6 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
+                    )}
+
+                    {visitedPlayers.map((id, idx) => (
+                      <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
+                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1">
+                          <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
+                            <AvatarImage 
+                              src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                              className="object-cover scale-[1.3] translate-y-1.5"
+                              onError={handleImageError}
+                            />
+                          </Avatar>
+                          <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
+                        </div>
+                        
+                        {idx < visitedPlayers.length - 1 && (
+                          <div className="py-2.5 w-full flex justify-center relative z-10">
+                            <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
+                              <div className="flex -space-x-1.5 shrink-0">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev) => (
+                                  <div key={teamAbbrev} className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                    {TEAM_LOGOS[teamAbbrev] ? (
+                                      <img 
+                                        src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                        alt={teamAbbrev} 
+                                        className="w-full h-full object-contain p-0.5 scale-[1.15]"
+                                      />
+                                    ) : (
+                                      <span className="text-[8px] font-black text-black">{teamAbbrev}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} • {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {idx < visitedPlayers.length - 1 && <div className="w-full flex justify-center py-1"><LinkIcon className="w-4 h-4 text-zinc-700" /></div>}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -347,17 +398,16 @@ export default function Game() {
         {/* Game Over Screen */}
         {gameState === 'gameover' && (
           <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
-            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-4 overflow-hidden relative flex-shrink-0">
+            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-3 overflow-hidden relative flex-shrink-0">
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-red-600 via-orange-500 to-red-600"></div>
-              <CardHeader className="text-center pt-6 pb-2">
-                <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-zinc-600 mx-auto mb-2" />
-                <CardTitle className="text-xl sm:text-2xl text-zinc-100 font-black tracking-tight">Chain Broken</CardTitle>
+              <CardHeader className="text-center pt-5 pb-2">
+                <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">Chain Broken</CardTitle>
               </CardHeader>
-              <CardContent className="text-center pb-6">
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Final Link Streak</div>
-                <div className="text-5xl sm:text-6xl font-black text-blue-500">{streak}</div>
+              <CardContent className="text-center pb-3 md:pb-4">
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Link Streak</div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500">{streak}</div>
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 border-t border-zinc-800/50 pt-4 bg-black/20">
+              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 md:pb-5 border-t border-zinc-800/50 pt-3 bg-black/20">
                 <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-12 font-bold" onClick={startGame}>
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
@@ -367,27 +417,56 @@ export default function Game() {
               </CardFooter>
             </Card>
 
-            {/* Chain History Panel */}
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-2 flex-1">
-                  {visitedPlayers.map((id, idx) => (
-                    <div key={id + idx} className="flex flex-col">
-                      <div className="flex items-center gap-3 p-2 hover:bg-zinc-800/50 rounded-lg">
-                        <Badge variant="outline" className="w-6 h-6 flex items-center justify-center p-0 border-zinc-700 bg-zinc-950 text-zinc-400 font-bold shrink-0">{idx + 1}</Badge>
-                        <Avatar className="w-10 h-10 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative">
-                          <AvatarImage 
-                            src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                            className="object-cover scale-[1.3] translate-y-1.5"
-                            onError={handleImageError}
-                          />
-                        </Avatar>
-                        <span className="font-bold text-sm sm:text-base text-zinc-200 truncate">{gameData.players[id]}</span>
+                <div className="overflow-y-auto custom-scrollbar p-4 flex-1">
+                  
+                  <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
+                    {visitedPlayers.length > 1 && (
+                      <div className="absolute top-6 bottom-6 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
+                    )}
+
+                    {visitedPlayers.map((id, idx) => (
+                      <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
+                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1">
+                          <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
+                            <AvatarImage 
+                              src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                              className="object-cover scale-[1.3] translate-y-1.5"
+                              onError={handleImageError}
+                            />
+                          </Avatar>
+                          <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
+                        </div>
+                        
+                        {idx < visitedPlayers.length - 1 && (
+                          <div className="py-2.5 w-full flex justify-center relative z-10">
+                            <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
+                              <div className="flex -space-x-1.5 shrink-0">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev) => (
+                                  <div key={teamAbbrev} className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                    {TEAM_LOGOS[teamAbbrev] ? (
+                                      <img 
+                                        src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                        alt={teamAbbrev} 
+                                        className="w-full h-full object-contain p-0.5 scale-[1.15]"
+                                      />
+                                    ) : (
+                                      <span className="text-[8px] font-black text-black">{teamAbbrev}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} • {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {idx < visitedPlayers.length - 1 && <div className="w-full flex justify-center py-1"><LinkIcon className="w-4 h-4 text-zinc-700" /></div>}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
