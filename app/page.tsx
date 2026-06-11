@@ -15,7 +15,8 @@ type GameData = {
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover'>('start');
+  // Added 'victory' state type here
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
@@ -25,8 +26,6 @@ export default function Game() {
   
   const [timeLeft, setTimeLeft] = useState(100);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // NEW: Ref to store the exact real-world timestamp the round should end
   const targetTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export default function Game() {
       });
   }, []);
 
-  // UPDATED: Timer now checks actual real-world time against targetTimeRef
   useEffect(() => {
     if (gameState === 'playing') {
       timerRef.current = setInterval(() => {
@@ -57,7 +55,7 @@ export default function Game() {
         if (remainingDeciseconds <= 0) {
           handleGameOver();
         }
-      }, 50); // Run slightly faster than 100ms so UI updates feel perfectly smooth
+      }, 50);
     }
     return () => clearInterval(timerRef.current as NodeJS.Timeout);
   }, [gameState]);
@@ -92,8 +90,11 @@ export default function Game() {
       if (jumpingTeammates.length > 0) validTeammates = jumpingTeammates;
     }
 
+    // Handled perfect network clearing victory state here
     if (validTeammates.length === 0) {
-      handleGameOver();
+      setGameState('victory');
+      targetTimeRef.current = null;
+      clearInterval(timerRef.current as NodeJS.Timeout);
       return;
     }
 
@@ -112,7 +113,6 @@ export default function Game() {
     const roundChoices = [correct, ...decoys].sort(() => Math.random() - 0.5);
     setChoices(roundChoices);
     
-    // NEW: Set the absolute expiration time (Current time + 10 seconds)
     targetTimeRef.current = Date.now() + 10000;
     setTimeLeft(100);
   };
@@ -137,19 +137,22 @@ export default function Game() {
   };
 
   const handleShare = async () => {
-    const shareText = `🔗 BBall and Chain: I linked ${streak} NBA players! Can you beat my streak?`;
+    const message = gameState === 'victory' 
+      ? `🏆 BBall and Chain: ABSOLUTE CHAMPION! I completely cleared the network with a perfect streak of ${streak}! Can you match perfection?`
+      : `🔗 BBall and Chain: I linked ${streak} NBA players before the chain broke! Can you beat my streak?`;
+    
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'BBall and Chain', text: shareText });
+        await navigator.share({ title: 'BBall and Chain', text: message });
         return;
       } catch (err) { console.log("Share cancelled.", err); }
     }
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(shareText);
+      navigator.clipboard.writeText(message);
       alert('Copied to clipboard!');
       return;
     }
-    alert('Clipboard access blocked. Copy this text: ' + shareText);
+    alert('Clipboard access blocked. Copy this text: ' + message);
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -195,6 +198,7 @@ export default function Game() {
 
       <div className="w-full max-w-xl flex-1 flex flex-col relative overflow-hidden">
 
+        {/* Start Screen */}
         {gameState === 'start' && (
           <div className="flex flex-col items-center justify-center h-full w-full animate-in fade-in zoom-in duration-500 pb-10">
             <div className="relative w-full">
@@ -224,9 +228,9 @@ export default function Game() {
           </div>
         )}
 
+        {/* Playing Screen */}
         {gameState === 'playing' && currentId && (
           <div className="flex flex-col flex-1 h-full animate-in fade-in slide-in-from-bottom-4 duration-300">
-            
             <div className="flex flex-col items-center justify-center flex-1 w-full pb-6 sm:pb-12">
               
               <div className="flex flex-col items-center justify-center w-full flex-shrink-0 mb-6 sm:mb-8">
@@ -285,6 +289,62 @@ export default function Game() {
           </div>
         )}
 
+        {/* Victory Screen */}
+        {gameState === 'victory' && (
+          <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
+            <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-4 overflow-hidden relative flex-shrink-0">
+              <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
+              <CardHeader className="text-center pt-6 pb-2">
+                <Trophy className="w-12 h-12 text-amber-500 mx-auto mb-2 animate-bounce" />
+                <CardTitle className="text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
+                  CHAMPION!
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center pb-6">
+                <p className="text-zinc-400 text-xs sm:text-sm uppercase tracking-widest font-bold mb-3 max-w-xs mx-auto leading-relaxed">
+                  Unbelievable! You completely cleared the available network path!
+                </p>
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Final Perfect Streak</div>
+                <div className="text-6xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">{streak}</div>
+              </CardContent>
+              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 border-t border-zinc-800/50 pt-4 bg-amber-500/5">
+                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-12 font-bold" onClick={startGame}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                </Button>
+                <Button className="h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20" onClick={handleShare}>
+                  <Share className="w-4 h-4 mr-2" /> Share Victory
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* Chain History Panel */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Winning Chain History</h3>
+              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
+                <div className="overflow-y-auto custom-scrollbar p-2 flex-1">
+                  {visitedPlayers.map((id, idx) => (
+                    <div key={id + idx} className="flex flex-col">
+                      <div className="flex items-center gap-3 p-2 hover:bg-zinc-800/50 rounded-lg">
+                        <Badge variant="outline" className="w-6 h-6 flex items-center justify-center p-0 border-amber-600/50 bg-zinc-950 text-amber-400 font-bold shrink-0">{idx + 1}</Badge>
+                        <Avatar className="w-10 h-10 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative">
+                          <AvatarImage 
+                            src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                            className="object-cover scale-[1.3] translate-y-1.5"
+                            onError={handleImageError}
+                          />
+                        </Avatar>
+                        <span className="font-bold text-sm sm:text-base text-zinc-200 truncate">{gameData.players[id]}</span>
+                      </div>
+                      {idx < visitedPlayers.length - 1 && <div className="w-full flex justify-center py-1"><LinkIcon className="w-4 h-4 text-zinc-700" /></div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Game Over Screen */}
         {gameState === 'gameover' && (
           <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
             <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-4 overflow-hidden relative flex-shrink-0">
@@ -307,6 +367,7 @@ export default function Game() {
               </CardFooter>
             </Card>
 
+            {/* Chain History Panel */}
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
