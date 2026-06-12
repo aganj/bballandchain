@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2 } from "lucide-react";
+import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check, Timer } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
@@ -29,6 +29,7 @@ export default function Game() {
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
+  const [wrongGuessId, setWrongGuessId] = useState<string | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
   const [streak, setStreak] = useState(0);
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
@@ -79,6 +80,7 @@ export default function Game() {
     if (!gameData) return;
     setStreak(0);
     setVisitedPlayers([]);
+    setWrongGuessId(null);
     
     const playerIds = Object.keys(gameData.network);
     let startId = playerIds[Math.floor(Math.random() * playerIds.length)];
@@ -143,8 +145,10 @@ export default function Game() {
       setStreak(newStreak);
       setCurrentId(id);
       setVisitedPlayers(newVisited);
+      setWrongGuessId(null);
       generateRound(id, newVisited, newStreak);
     } else {
+      setWrongGuessId(id);
       handleGameOver();
     }
   };
@@ -351,7 +355,7 @@ export default function Game() {
 
                     {visitedPlayers.map((id, idx) => (
                       <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1">
+                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
                           <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                             <AvatarImage 
                               src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
@@ -381,7 +385,7 @@ export default function Game() {
                                 ))}
                               </div>
                               <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} • {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
                               </span>
                             </div>
                           </div>
@@ -420,16 +424,18 @@ export default function Game() {
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-4 flex-1">
+                <div className="overflow-y-auto custom-scrollbar p-4 flex-1 relative">
                   
+                  {/* Valid Player History Block - Safely isolating the background line */}
                   <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
                     {visitedPlayers.length > 1 && (
                       <div className="absolute top-6 bottom-6 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
                     )}
 
+                    {/* Standard Perfect Chain Rendering */}
                     {visitedPlayers.map((id, idx) => (
                       <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1">
+                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
                           <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                             <AvatarImage 
                               src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
@@ -459,7 +465,7 @@ export default function Game() {
                                 ))}
                               </div>
                               <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} • {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
                               </span>
                             </div>
                           </div>
@@ -467,6 +473,127 @@ export default function Game() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Fork Block - Placed below the valid history block so lines don't overlap */}
+                  {correctTeammateId && (
+                    <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-6">
+                      {wrongGuessId ? (
+                        <>
+                          {/* Main trunk dropping down */}
+                          <div className="w-[2px] h-6 bg-zinc-800/80"></div>
+                          
+                          {/* Fork Container */}
+                          <div className="w-full max-w-[95%] sm:max-w-[400px] flex justify-between relative">
+                            
+                            {/* Horizontal split line exactly centered across the two drop lines */}
+                            <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-zinc-800/80"></div>
+                            
+                            {/* Left Column (Wrong Guess) */}
+                            <div className="w-1/2 flex flex-col items-center relative pt-12 px-1.5 sm:px-2">
+                              {/* Left Drop Line */}
+                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-12 bg-zinc-800/80"></div>
+                              
+                              {/* Standard Clean Box for Left Player */}
+                              <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-sm relative h-full">
+                                <span className="text-[9px] sm:text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 flex items-center gap-1 text-center">
+                                  <X className="w-3 h-3 shrink-0"/> Your Guess
+                                </span>
+                                <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate opacity-60">
+                                  <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${wrongGuessId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                                </Avatar>
+                                <span className="font-bold text-xs sm:text-sm text-zinc-500 mt-2 text-center leading-tight">{gameData.players[wrongGuessId]}</span>
+                              </div>
+                            </div>
+
+                            {/* Right Column (Correct Answer) */}
+                            <div className="w-1/2 flex flex-col items-center relative pt-12 px-1.5 sm:px-2">
+                              {/* Right Drop Line */}
+                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-12 bg-zinc-800/80"></div>
+                              
+                              {/* Floating Connection Badge placed exactly halfway down the right drop line */}
+                              {(() => {
+                                const lastId = visitedPlayers[visitedPlayers.length - 1];
+                                const sharedData = gameData.network[lastId]?.[correctTeammateId];
+                                if (!sharedData) return null;
+                                return (
+                                  <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                                    <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md scale-[0.85] sm:scale-100 origin-center whitespace-nowrap">
+                                      <div className="flex -space-x-1.5 shrink-0">
+                                        {sharedData.teams.map((teamAbbrev) => (
+                                          <div key={teamAbbrev} className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                            {TEAM_LOGOS[teamAbbrev] ? (
+                                              <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
+                                            ) : (
+                                              <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest">
+                                        {sharedData.teams.join(" & ")} {sharedData.years.join(", ")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+
+                              {/* Standard Clean Box for Right Player */}
+                              <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-sm relative h-full">
+                                <span className="text-[9px] sm:text-[10px] font-black text-green-500 uppercase tracking-widest mb-2 flex items-center gap-1 text-center">
+                                  <Check className="w-3 h-3 shrink-0"/> Correct
+                                </span>
+                                <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
+                                  <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                                </Avatar>
+                                <span className="font-bold text-xs sm:text-sm text-zinc-200 mt-2 text-center leading-tight">{gameData.players[correctTeammateId]}</span>
+                              </div>
+                            </div>
+
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Timeout Layout (No Wrong Guess) */}
+                          <div className="w-[2px] h-6 bg-zinc-800/80"></div>
+                          
+                          <div className="flex flex-col items-center bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 shadow-sm relative z-10 w-[180px] sm:w-[220px]">
+                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-3 flex items-center gap-1 text-center">
+                              <Timer className="w-3 h-3 shrink-0"/> Time Expired
+                            </span>
+                            
+                            {(() => {
+                              const lastId = visitedPlayers[visitedPlayers.length - 1];
+                              const sharedData = gameData.network[lastId]?.[correctTeammateId];
+                              if (!sharedData) return null;
+                              return (
+                                <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 mb-3 shadow-md">
+                                  <div className="flex -space-x-1.5 shrink-0">
+                                    {sharedData.teams.map((teamAbbrev) => (
+                                      <div key={teamAbbrev} className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                        {TEAM_LOGOS[teamAbbrev] ? (
+                                          <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
+                                        ) : (
+                                          <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest">
+                                    {sharedData.teams.join(" & ")} {sharedData.years.join(", ")}
+                                  </span>
+                                </div>
+                              )
+                            })()}
+
+                            <Avatar className="w-12 h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
+                              <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                            </Avatar>
+                            <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center">{gameData.players[correctTeammateId]}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
