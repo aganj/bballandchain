@@ -477,18 +477,21 @@ export default function Game() {
                   {/* Fork Block - Placed below the valid history block so lines don't overlap */}
                   {correctTeammateId && (
                     <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-6">
-                      {wrongGuessId ? (
-                        <>
-                          {/* Main trunk dropping down */}
-                          <div className="w-[2px] h-6 bg-zinc-800/80"></div>
+                      {/* Main trunk dropping down */}
+                      <div className="w-[2px] h-6 bg-zinc-800/80"></div>
+                      
+                      {/* Fork Container */}
+                      <div className="w-full max-w-[95%] sm:max-w-[400px] flex justify-between relative">
+                        
+                        {/* Horizontal split line exactly centered across the two drop lines */}
+                        <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-zinc-800/80"></div>
+                        
+                        {/* Left Column (Decoy Player) */}
+                        {(() => {
+                          // Find the decoy player from the choices array
+                          const decoyId = wrongGuessId || choices.find(id => id !== correctTeammateId);
                           
-                          {/* Fork Container */}
-                          <div className="w-full max-w-[95%] sm:max-w-[400px] flex justify-between relative">
-                            
-                            {/* Horizontal split line exactly centered across the two drop lines */}
-                            <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-zinc-800/80"></div>
-                            
-                            {/* Left Column (Wrong Guess) */}
+                          return (
                             <div className="w-1/2 flex flex-col items-center relative pt-12 px-1.5 sm:px-2">
                               {/* Left Drop Line */}
                               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-12 bg-zinc-800/80"></div>
@@ -496,77 +499,35 @@ export default function Game() {
                               {/* Standard Clean Box for Left Player */}
                               <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-sm relative h-full">
                                 <span className="text-[9px] sm:text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 flex items-center gap-1 text-center">
-                                  <X className="w-3 h-3 shrink-0"/> Your Guess
+                                  <X className="w-3 h-3 shrink-0"/>
+                                  {wrongGuessId ? "Your Guess" : "Incorrect"}
                                 </span>
                                 <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate opacity-60">
-                                  <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${wrongGuessId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                                  {decoyId && (
+                                    <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${decoyId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                                  )}
                                 </Avatar>
-                                <span className="font-bold text-xs sm:text-sm text-zinc-500 mt-2 text-center leading-tight">{gameData.players[wrongGuessId]}</span>
-                              </div>
-                            </div>
-
-                            {/* Right Column (Correct Answer) */}
-                            <div className="w-1/2 flex flex-col items-center relative pt-12 px-1.5 sm:px-2">
-                              {/* Right Drop Line */}
-                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-12 bg-zinc-800/80"></div>
-                              
-                              {/* Floating Connection Badge placed exactly halfway down the right drop line */}
-                              {(() => {
-                                const lastId = visitedPlayers[visitedPlayers.length - 1];
-                                const sharedData = gameData.network[lastId]?.[correctTeammateId];
-                                if (!sharedData) return null;
-                                return (
-                                  <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                                    <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md scale-[0.85] sm:scale-100 origin-center whitespace-nowrap">
-                                      <div className="flex -space-x-1.5 shrink-0">
-                                        {sharedData.teams.map((teamAbbrev) => (
-                                          <div key={teamAbbrev} className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
-                                            {TEAM_LOGOS[teamAbbrev] ? (
-                                              <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
-                                            ) : (
-                                              <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest">
-                                        {sharedData.teams.join(" & ")} {sharedData.years.join(", ")}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )
-                              })()}
-
-                              {/* Standard Clean Box for Right Player */}
-                              <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-sm relative h-full">
-                                <span className="text-[9px] sm:text-[10px] font-black text-green-500 uppercase tracking-widest mb-2 flex items-center gap-1 text-center">
-                                  <Check className="w-3 h-3 shrink-0"/> Correct
+                                <span className="font-bold text-xs sm:text-sm text-zinc-500 mt-2 text-center leading-tight">
+                                  {decoyId ? gameData.players[decoyId] : ""}
                                 </span>
-                                <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
-                                  <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
-                                </Avatar>
-                                <span className="font-bold text-xs sm:text-sm text-zinc-200 mt-2 text-center leading-tight">{gameData.players[correctTeammateId]}</span>
                               </div>
                             </div>
+                          );
+                        })()}
 
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Timeout Layout (No Wrong Guess) */}
-                          <div className="w-[2px] h-6 bg-zinc-800/80"></div>
+                        {/* Right Column (Correct Answer) */}
+                        <div className="w-1/2 flex flex-col items-center relative pt-12 px-1.5 sm:px-2">
+                          {/* Right Drop Line */}
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-12 bg-zinc-800/80"></div>
                           
-                          <div className="flex flex-col items-center bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 shadow-sm relative z-10 w-[180px] sm:w-[220px]">
-                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-3 flex items-center gap-1 text-center">
-                              <Timer className="w-3 h-3 shrink-0"/> Time Expired
-                            </span>
-                            
-                            {(() => {
-                              const lastId = visitedPlayers[visitedPlayers.length - 1];
-                              const sharedData = gameData.network[lastId]?.[correctTeammateId];
-                              if (!sharedData) return null;
-                              return (
-                                <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 mb-3 shadow-md">
+                          {/* Floating Connection Badge placed exactly halfway down the right drop line */}
+                          {(() => {
+                            const lastId = visitedPlayers[visitedPlayers.length - 1];
+                            const sharedData = gameData.network[lastId]?.[correctTeammateId];
+                            if (!sharedData) return null;
+                            return (
+                              <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                                <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md scale-[0.85] sm:scale-100 origin-center whitespace-nowrap">
                                   <div className="flex -space-x-1.5 shrink-0">
                                     {sharedData.teams.map((teamAbbrev) => (
                                       <div key={teamAbbrev} className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
@@ -582,16 +543,23 @@ export default function Game() {
                                     {sharedData.teams.join(" & ")} {sharedData.years.join(", ")}
                                   </span>
                                 </div>
-                              )
-                            })()}
+                              </div>
+                            )
+                          })()}
 
-                            <Avatar className="w-12 h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
+                          {/* Standard Clean Box for Right Player */}
+                          <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-sm relative h-full">
+                            <span className="text-[9px] sm:text-[10px] font-black text-green-500 uppercase tracking-widest mb-2 flex items-center gap-1 text-center">
+                              <Check className="w-3 h-3 shrink-0"/> Correct
+                            </span>
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
                               <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
                             </Avatar>
-                            <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center">{gameData.players[correctTeammateId]}</span>
+                            <span className="font-bold text-xs sm:text-sm text-zinc-200 mt-2 text-center leading-tight">{gameData.players[correctTeammateId]}</span>
                           </div>
-                        </>
-                      )}
+                        </div>
+
+                      </div>
                     </div>
                   )}
                 </div>
