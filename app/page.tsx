@@ -33,34 +33,55 @@ const getStartYear = (yearStr: string) => {
   return y;
 };
 
-const sortStints = (teams: string[], years: string[]) => {
+const sortAndGroupStints = (teams: string[], years: string[]) => {
   const t = teams || [];
   const y = years || [];
   const maxLen = Math.max(t.length, y.length);
-  const stints = [];
+  
+  const grouped: Record<string, string[]> = {};
   
   for (let i = 0; i < maxLen; i++) {
-    stints.push({ team: t[i] || "", year: y[i] || "" });
+    const team = t[i] || "";
+    const year = y[i] || "";
+    if (!team) continue;
+    if (!grouped[team]) grouped[team] = [];
+    if (year) grouped[team].push(year);
   }
   
-  stints.sort((a, b) => getStartYear(a.year) - getStartYear(b.year));
+  const result = Object.keys(grouped).map(team => {
+    const teamYears = grouped[team];
+    teamYears.sort((a, b) => getStartYear(a) - getStartYear(b));
+    return {
+      team,
+      rawYears: teamYears,
+      earliestYear: teamYears.length > 0 ? getStartYear(teamYears[0]) : 9999
+    };
+  });
+  
+  result.sort((a, b) => a.earliestYear - b.earliestYear);
   
   return {
-    sortedTeams: stints.map(s => s.team),
-    sortedYears: stints.map(s => s.year)
+    sortedTeams: result.map(r => r.team),
+    sortedYearsArray: result.map(r => r.rawYears)
   };
 };
 
-const formatSingleYear = (yearStr: string) => {
-  if (!yearStr) return "";
-  const blocks = yearStr.split(/\s+-\s+/);
-  return blocks.map(block => {
-    const parts = block.split(/[-/]/);
-    return parts.map(part => {
-      const clean = part.trim();
-      return clean.length === 4 ? clean.slice(2) : clean;
-    }).join('-');
-  }).join(' → ');
+const formatYearsList = (yearsList: string[]) => {
+  if (!yearsList || yearsList.length === 0) return "";
+  
+  const formattedList = yearsList.map(yearStr => {
+    if (!yearStr) return "";
+    const blocks = yearStr.split(/\s+-\s+/);
+    return blocks.map(block => {
+      const parts = block.split(/[-/]/);
+      return parts.map(part => {
+        const clean = part.trim();
+        return clean.length === 4 ? clean.slice(2) : clean;
+      }).join('-');
+    }).join(' → ');
+  });
+  
+  return formattedList.filter(y => y !== "").join(', ');
 };
 
 export default function Game() {
@@ -442,11 +463,11 @@ export default function Game() {
                       const connection = nextId ? gameData.network[id]?.[nextId] : null;
                       
                       let sortedTeams: string[] = [];
-                      let sortedYears: string[] = [];
+                      let sortedYearsArray: string[][] = [];
                       if (connection) {
-                        const sorted = sortStints(connection.teams, connection.years);
+                        const sorted = sortAndGroupStints(connection.teams, connection.years);
                         sortedTeams = sorted.sortedTeams;
-                        sortedYears = sorted.sortedYears;
+                        sortedYearsArray = sorted.sortedYearsArray;
                       }
 
                       return (
@@ -469,23 +490,20 @@ export default function Game() {
                                   if (!teamAbbrev) return null;
                                   return (
                                     <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2">
-                                      {tIdx > 0 && <span className="text-zinc-600 text-[10px] sm:text-xs mx-1 font-bold">→</span>}
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
-                                          {TEAM_LOGOS[teamAbbrev] ? (
-                                            <img 
-                                              src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
-                                              alt={teamAbbrev} 
-                                              className="w-full h-full object-contain p-[1px] scale-[1.15]"
-                                            />
-                                          ) : (
-                                            <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
-                                          )}
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                          {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
-                                        </span>
+                                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                        {TEAM_LOGOS[teamAbbrev] ? (
+                                          <img 
+                                            src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                            alt={teamAbbrev} 
+                                            className="w-full h-full object-contain p-[1px] scale-[1.15]"
+                                          />
+                                        ) : (
+                                          <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
+                                        )}
                                       </div>
+                                      <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                        {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatYearsList(sortedYearsArray[tIdx])}</span>
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -542,11 +560,11 @@ export default function Game() {
                       const connection = nextId ? gameData.network[id]?.[nextId] : null;
                       
                       let sortedTeams: string[] = [];
-                      let sortedYears: string[] = [];
+                      let sortedYearsArray: string[][] = [];
                       if (connection) {
-                        const sorted = sortStints(connection.teams, connection.years);
+                        const sorted = sortAndGroupStints(connection.teams, connection.years);
                         sortedTeams = sorted.sortedTeams;
-                        sortedYears = sorted.sortedYears;
+                        sortedYearsArray = sorted.sortedYearsArray;
                       }
 
                       return (
@@ -569,23 +587,20 @@ export default function Game() {
                                   if (!teamAbbrev) return null;
                                   return (
                                     <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2">
-                                      {tIdx > 0 && <span className="text-zinc-600 text-[10px] sm:text-xs mx-1 font-bold">→</span>}
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
-                                          {TEAM_LOGOS[teamAbbrev] ? (
-                                            <img 
-                                              src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
-                                              alt={teamAbbrev} 
-                                              className="w-full h-full object-contain p-[1px] scale-[1.15]"
-                                            />
-                                          ) : (
-                                            <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
-                                          )}
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                          {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
-                                        </span>
+                                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                        {TEAM_LOGOS[teamAbbrev] ? (
+                                          <img 
+                                            src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                            alt={teamAbbrev} 
+                                            className="w-full h-full object-contain p-[1px] scale-[1.15]"
+                                          />
+                                        ) : (
+                                          <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
+                                        )}
                                       </div>
+                                      <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                        {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatYearsList(sortedYearsArray[tIdx])}</span>
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -648,7 +663,7 @@ export default function Game() {
                             const sharedData = gameData.network[lastId]?.[correctTeammateId];
                             if (!sharedData) return null;
                             
-                            const { sortedTeams, sortedYears } = sortStints(sharedData.teams, sharedData.years);
+                            const { sortedTeams, sortedYearsArray } = sortAndGroupStints(sharedData.teams, sharedData.years);
                             
                             return (
                               <div className="absolute top-12 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-full flex justify-center pointer-events-none">
@@ -656,20 +671,17 @@ export default function Game() {
                                   {sortedTeams.map((teamAbbrev, tIdx) => {
                                     if (!teamAbbrev) return null;
                                     return (
-                                      <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2">
-                                        {tIdx > 0 && <span className="text-zinc-600 text-[10px] sm:text-xs mx-1 font-bold">→</span>}
-                                        <div className="flex items-center gap-1.5">
-                                          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
-                                            {TEAM_LOGOS[teamAbbrev] ? (
-                                              <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
-                                            ) : (
-                                              <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
-                                            )}
-                                          </div>
-                                          <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                            {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
-                                          </span>
+                                      <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5">
+                                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                          {TEAM_LOGOS[teamAbbrev] ? (
+                                            <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
+                                          ) : (
+                                            <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
+                                          )}
                                         </div>
+                                        <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                          {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatYearsList(sortedYearsArray[tIdx])}</span>
+                                        </span>
                                       </div>
                                     );
                                   })}
