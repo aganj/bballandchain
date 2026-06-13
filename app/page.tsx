@@ -22,24 +22,45 @@ const TEAM_LOGOS: Record<string, string> = {
   "DET": "1610612765", "CHA": "1610612766"
 };
 
-// Smarter helper function to format single or multiple stints securely into "24-25 → 25-26"
-const formatSeasons = (years: string[]) => {
-  if (!years || years.length === 0) return "";
+const getStartYear = (yearStr: string) => {
+  if (!yearStr) return 9999;
+  const match = yearStr.match(/\d{2,4}/);
+  if (!match) return 9999; 
+  let y = parseInt(match[0], 10);
+  if (y < 100) {
+    y += (y < 50 ? 2000 : 1900);
+  }
+  return y;
+};
+
+const sortStints = (teams: string[], years: string[]) => {
+  const t = teams || [];
+  const y = years || [];
+  const maxLen = Math.max(t.length, y.length);
+  const stints = [];
   
-  return years.map(stint => {
-    // First, split by " - " (with spaces) to isolate multiple separate stints
-    const seasonBlocks = stint.split(/\s+-\s+/);
-    
-    return seasonBlocks.map(block => {
-      // Then, split the specific season block (e.g., "2024/25") by slash or hyphen
-      const parts = block.split(/[-/]/);
-      return parts.map(part => {
-        const clean = part.trim();
-        // Cut "2024" down to "24"
-        return clean.length === 4 ? clean.slice(2) : clean;
-      }).join('-'); // Rejoin the individual season with a hyphen
-    }).join(' → '); // Rejoin the separate blocks with the arrow
-  }).join(' → '); // If the array had multiple elements, join those with arrows too
+  for (let i = 0; i < maxLen; i++) {
+    stints.push({ team: t[i] || "", year: y[i] || "" });
+  }
+  
+  stints.sort((a, b) => getStartYear(a.year) - getStartYear(b.year));
+  
+  return {
+    sortedTeams: stints.map(s => s.team),
+    sortedYears: stints.map(s => s.year)
+  };
+};
+
+const formatSingleYear = (yearStr: string) => {
+  if (!yearStr) return "";
+  const blocks = yearStr.split(/\s+-\s+/);
+  return blocks.map(block => {
+    const parts = block.split(/[-/]/);
+    return parts.map(part => {
+      const clean = part.trim();
+      return clean.length === 4 ? clean.slice(2) : clean;
+    }).join('-');
+  }).join(' → ');
 };
 
 export default function Game() {
@@ -58,7 +79,7 @@ export default function Game() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const targetTimeRef = useRef<number | null>(null);
   
-  const endOfHistoryRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`/active_nba_game_data.json?t=${new Date().getTime()}`)
@@ -93,10 +114,43 @@ export default function Game() {
   }, [gameState]);
 
   useEffect(() => {
+    let animationFrameId: number;
+    
     if (gameState === 'gameover' || gameState === 'victory') {
-      setTimeout(() => {
-        endOfHistoryRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      const timeoutId = setTimeout(() => {
+        if (scrollContainerRef.current) {
+          const container = scrollContainerRef.current;
+          const startY = container.scrollTop;
+          const endY = container.scrollHeight - container.clientHeight;
+          const distance = endY - startY;
+          
+          const duration = 1500; 
+          let startTime: number | null = null;
+
+          const animation = (currentTime: number) => {
+            if (startTime === null) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const progress = Math.min(timeElapsed / duration, 1);
+            
+            const ease = progress < 0.5 
+              ? 4 * progress * progress * progress 
+              : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+              
+            container.scrollTop = startY + distance * ease;
+            
+            if (timeElapsed < duration) {
+              animationFrameId = requestAnimationFrame(animation);
+            }
+          };
+          
+          animationFrameId = requestAnimationFrame(animation);
+        }
+      }, 50);
+
+      return () => {
+        clearTimeout(timeoutId);
+        cancelAnimationFrame(animationFrameId);
+      };
     }
   }, [gameState]);
 
@@ -376,55 +430,69 @@ export default function Game() {
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Winning Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-4 flex-1">
+                <div className="overflow-y-auto custom-scrollbar p-4 flex-1" ref={scrollContainerRef}>
                   
                   <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
                     {visitedPlayers.length > 1 && (
                       <div className="absolute top-6 bottom-6 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
                     )}
 
-                    {visitedPlayers.map((id, idx) => (
-                      <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
-                          <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
-                            <AvatarImage 
-                              src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                              className="object-cover scale-[1.5] translate-y-3"
-                              onError={handleImageError}
-                            />
-                          </Avatar>
-                          <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
-                        </div>
-                        
-                        {idx < visitedPlayers.length - 1 && (
-                          <div className="py-2.5 w-full flex justify-center relative z-10">
-                            <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
-                              <div className="flex -space-x-1.5 shrink-0">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev, tIdx) => (
-                                  <div key={teamAbbrev} className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
-                                    {TEAM_LOGOS[teamAbbrev] ? (
-                                      <img 
-                                        src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
-                                        alt={teamAbbrev} 
-                                        className="w-full h-full object-contain p-0.5 scale-[1.15]"
-                                      />
-                                    ) : (
-                                      <span className="text-[8px] font-black text-black">{teamAbbrev}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {formatSeasons(gameData.network[id]?.[visitedPlayers[idx + 1]]?.years || [])}
-                              </span>
-                            </div>
+                    {visitedPlayers.map((id, idx) => {
+                      const nextId = visitedPlayers[idx + 1];
+                      const connection = nextId ? gameData.network[id]?.[nextId] : null;
+                      
+                      let sortedTeams: string[] = [];
+                      let sortedYears: string[] = [];
+                      if (connection) {
+                        const sorted = sortStints(connection.teams, connection.years);
+                        sortedTeams = sorted.sortedTeams;
+                        sortedYears = sorted.sortedYears;
+                      }
+
+                      return (
+                        <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
+                          <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
+                            <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
+                              <AvatarImage 
+                                src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                                className="object-cover scale-[1.5] translate-y-3"
+                                onError={handleImageError}
+                              />
+                            </Avatar>
+                            <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          
+                          {idx < visitedPlayers.length - 1 && connection && (
+                            <div className="py-2.5 w-full flex justify-center relative z-10">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-full px-2 py-1.5 sm:px-3 sm:py-1.5 flex items-center justify-center flex-wrap gap-1 sm:gap-2 shadow-md w-max max-w-[95%]">
+                                {sortedTeams.map((teamAbbrev, tIdx) => {
+                                  if (!teamAbbrev) return null;
+                                  return (
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1 sm:gap-1.5">
+                                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                        {TEAM_LOGOS[teamAbbrev] ? (
+                                          <img 
+                                            src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                            alt={teamAbbrev} 
+                                            className="w-full h-full object-contain p-[1px] scale-[1.15]"
+                                          />
+                                        ) : (
+                                          <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
+                                        )}
+                                      </div>
+                                      <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                        {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {/* Anchor point for auto-scroll */}
-                  <div ref={endOfHistoryRef} className="h-2 w-full" />
                 </div>
               </div>
             </div>
@@ -456,59 +524,75 @@ export default function Game() {
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-4 flex-1 relative">
+                <div className="overflow-y-auto custom-scrollbar p-4 flex-1 relative" ref={scrollContainerRef}>
                   
-                  {/* Valid Player History Block - Safely isolating the background line */}
+                  {/* Valid Player History Block */}
                   <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
                     {visitedPlayers.length > 1 && (
                       <div className="absolute top-6 bottom-6 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
                     )}
 
                     {/* Standard Perfect Chain Rendering */}
-                    {visitedPlayers.map((id, idx) => (
-                      <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                        <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
-                          <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
-                            <AvatarImage 
-                              src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                              className="object-cover scale-[1.5] translate-y-3"
-                              onError={handleImageError}
-                            />
-                          </Avatar>
-                          <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
-                        </div>
-                        
-                        {idx < visitedPlayers.length - 1 && (
-                          <div className="py-2.5 w-full flex justify-center relative z-10">
-                            <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
-                              <div className="flex -space-x-1.5 shrink-0">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev, tIdx) => (
-                                  <div key={teamAbbrev} className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
-                                    {TEAM_LOGOS[teamAbbrev] ? (
-                                      <img 
-                                        src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
-                                        alt={teamAbbrev} 
-                                        className="w-full h-full object-contain p-0.5 scale-[1.15]"
-                                      />
-                                    ) : (
-                                      <span className="text-[8px] font-black text-black">{teamAbbrev}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {formatSeasons(gameData.network[id]?.[visitedPlayers[idx + 1]]?.years || [])}
-                              </span>
-                            </div>
+                    {visitedPlayers.map((id, idx) => {
+                      const nextId = visitedPlayers[idx + 1];
+                      const connection = nextId ? gameData.network[id]?.[nextId] : null;
+                      
+                      let sortedTeams: string[] = [];
+                      let sortedYears: string[] = [];
+                      if (connection) {
+                        const sorted = sortStints(connection.teams, connection.years);
+                        sortedTeams = sorted.sortedTeams;
+                        sortedYears = sorted.sortedYears;
+                      }
+
+                      return (
+                        <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
+                          <div className="flex flex-col items-center bg-zinc-900 rounded-xl px-4 py-1 border border-zinc-800/50">
+                            <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
+                              <AvatarImage 
+                                src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
+                                className="object-cover scale-[1.5] translate-y-3"
+                                onError={handleImageError}
+                              />
+                            </Avatar>
+                            <span className="font-bold text-sm sm:text-base text-zinc-200 mt-2 text-center whitespace-nowrap">{gameData.players[id]}</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          
+                          {idx < visitedPlayers.length - 1 && connection && (
+                            <div className="py-2.5 w-full flex justify-center relative z-10">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-full px-2 py-1.5 sm:px-3 sm:py-1.5 flex items-center justify-center flex-wrap gap-1 sm:gap-2 shadow-md w-max max-w-[95%]">
+                                {sortedTeams.map((teamAbbrev, tIdx) => {
+                                  if (!teamAbbrev) return null;
+                                  return (
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1 sm:gap-1.5">
+                                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                        {TEAM_LOGOS[teamAbbrev] ? (
+                                          <img 
+                                            src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
+                                            alt={teamAbbrev} 
+                                            className="w-full h-full object-contain p-[1px] scale-[1.15]"
+                                          />
+                                        ) : (
+                                          <span className="text-[8px] font-black text-black">{teamAbbrev}</span>
+                                        )}
+                                      </div>
+                                      <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                        {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Fork Block - Placed below the valid history block so lines don't overlap */}
+                  {/* Fork Block */}
                   {correctTeammateId && (
-                    <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-6">
+                    <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-1">
                       {/* Main trunk dropping down */}
                       <div className="w-[2px] h-6 bg-zinc-800/80"></div>
                       
@@ -520,7 +604,6 @@ export default function Game() {
                         
                         {/* Left Column (Decoy Player) */}
                         {(() => {
-                          // Find the decoy player from the choices array
                           const decoyId = wrongGuessId || choices.find(id => id !== correctTeammateId);
                           
                           return (
@@ -557,23 +640,29 @@ export default function Game() {
                             const lastId = visitedPlayers[visitedPlayers.length - 1];
                             const sharedData = gameData.network[lastId]?.[correctTeammateId];
                             if (!sharedData) return null;
+                            
+                            const { sortedTeams, sortedYears } = sortStints(sharedData.teams, sharedData.years);
+                            
                             return (
-                              <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                                <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md scale-[0.85] sm:scale-100 origin-center whitespace-nowrap">
-                                  <div className="flex -space-x-1.5 shrink-0">
-                                    {sharedData.teams.map((teamAbbrev, tIdx) => (
-                                      <div key={teamAbbrev} className="relative w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
-                                        {TEAM_LOGOS[teamAbbrev] ? (
-                                          <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
-                                        ) : (
-                                          <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
-                                        )}
+                              <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-full flex justify-center pointer-events-none">
+                                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-full px-2 py-1.5 flex items-center justify-center flex-wrap gap-1 shadow-md scale-[0.85] sm:scale-100 origin-center pointer-events-auto w-max max-w-[110%]">
+                                  {sortedTeams.map((teamAbbrev, tIdx) => {
+                                    if (!teamAbbrev) return null;
+                                    return (
+                                      <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1">
+                                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                          {TEAM_LOGOS[teamAbbrev] ? (
+                                            <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
+                                          ) : (
+                                            <span className="text-[6px] font-black text-black">{teamAbbrev}</span>
+                                          )}
+                                        </div>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                          {teamAbbrev} <span className="text-zinc-500 ml-0.5">{formatSingleYear(sortedYears[tIdx])}</span>
+                                        </span>
                                       </div>
-                                    ))}
-                                  </div>
-                                  <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest">
-                                    {sharedData.teams.join(" & ")} {formatSeasons(sharedData.years)}
-                                  </span>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )
@@ -594,7 +683,6 @@ export default function Game() {
                       </div>
                     </div>
                   )}
-                  <div ref={endOfHistoryRef} className="h-4 w-full" />
                 </div>
               </div>
             </div>
