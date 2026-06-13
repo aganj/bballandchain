@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check, Timer } from "lucide-react";
+import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
@@ -22,6 +22,26 @@ const TEAM_LOGOS: Record<string, string> = {
   "DET": "1610612765", "CHA": "1610612766"
 };
 
+// Smarter helper function to format single or multiple stints securely into "24-25 → 25-26"
+const formatSeasons = (years: string[]) => {
+  if (!years || years.length === 0) return "";
+  
+  return years.map(stint => {
+    // First, split by " - " (with spaces) to isolate multiple separate stints
+    const seasonBlocks = stint.split(/\s+-\s+/);
+    
+    return seasonBlocks.map(block => {
+      // Then, split the specific season block (e.g., "2024/25") by slash or hyphen
+      const parts = block.split(/[-/]/);
+      return parts.map(part => {
+        const clean = part.trim();
+        // Cut "2024" down to "24"
+        return clean.length === 4 ? clean.slice(2) : clean;
+      }).join('-'); // Rejoin the individual season with a hyphen
+    }).join(' → '); // Rejoin the separate blocks with the arrow
+  }).join(' → '); // If the array had multiple elements, join those with arrows too
+};
+
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -37,6 +57,8 @@ export default function Game() {
   const [timeLeft, setTimeLeft] = useState(100);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const targetTimeRef = useRef<number | null>(null);
+  
+  const endOfHistoryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`/active_nba_game_data.json?t=${new Date().getTime()}`)
@@ -68,6 +90,14 @@ export default function Game() {
       }, 50);
     }
     return () => clearInterval(timerRef.current as NodeJS.Timeout);
+  }, [gameState]);
+
+  useEffect(() => {
+    if (gameState === 'gameover' || gameState === 'victory') {
+      setTimeout(() => {
+        endOfHistoryRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
   }, [gameState]);
 
   const goHome = () => {
@@ -370,8 +400,8 @@ export default function Game() {
                           <div className="py-2.5 w-full flex justify-center relative z-10">
                             <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
                               <div className="flex -space-x-1.5 shrink-0">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev) => (
-                                  <div key={teamAbbrev} className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev, tIdx) => (
+                                  <div key={teamAbbrev} className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
                                     {TEAM_LOGOS[teamAbbrev] ? (
                                       <img 
                                         src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
@@ -385,7 +415,7 @@ export default function Game() {
                                 ))}
                               </div>
                               <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {formatSeasons(gameData.network[id]?.[visitedPlayers[idx + 1]]?.years || [])}
                               </span>
                             </div>
                           </div>
@@ -393,6 +423,8 @@ export default function Game() {
                       </div>
                     ))}
                   </div>
+                  {/* Anchor point for auto-scroll */}
+                  <div ref={endOfHistoryRef} className="h-2 w-full" />
                 </div>
               </div>
             </div>
@@ -450,8 +482,8 @@ export default function Game() {
                           <div className="py-2.5 w-full flex justify-center relative z-10">
                             <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md">
                               <div className="flex -space-x-1.5 shrink-0">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev) => (
-                                  <div key={teamAbbrev} className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.map((teamAbbrev, tIdx) => (
+                                  <div key={teamAbbrev} className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
                                     {TEAM_LOGOS[teamAbbrev] ? (
                                       <img 
                                         src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
@@ -465,7 +497,7 @@ export default function Game() {
                                 ))}
                               </div>
                               <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {gameData.network[id]?.[visitedPlayers[idx + 1]]?.years.join(", ")}
+                                {gameData.network[id]?.[visitedPlayers[idx + 1]]?.teams.join(" & ")} {formatSeasons(gameData.network[id]?.[visitedPlayers[idx + 1]]?.years || [])}
                               </span>
                             </div>
                           </div>
@@ -529,8 +561,8 @@ export default function Game() {
                               <div className="absolute top-6 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
                                 <div className="bg-zinc-950 border border-zinc-800 rounded-full pl-1 pr-2 py-1 flex items-center gap-1.5 shadow-md scale-[0.85] sm:scale-100 origin-center whitespace-nowrap">
                                   <div className="flex -space-x-1.5 shrink-0">
-                                    {sharedData.teams.map((teamAbbrev) => (
-                                      <div key={teamAbbrev} className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                    {sharedData.teams.map((teamAbbrev, tIdx) => (
+                                      <div key={teamAbbrev} className="relative w-5 h-5 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm isolate" style={{ zIndex: 10 - tIdx }}>
                                         {TEAM_LOGOS[teamAbbrev] ? (
                                           <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
                                         ) : (
@@ -540,7 +572,7 @@ export default function Game() {
                                     ))}
                                   </div>
                                   <span className="text-[10px] sm:text-xs font-bold text-zinc-300 tracking-widest">
-                                    {sharedData.teams.join(" & ")} {sharedData.years.join(", ")}
+                                    {sharedData.teams.join(" & ")} {formatSeasons(sharedData.years)}
                                   </span>
                                 </div>
                               </div>
@@ -562,6 +594,7 @@ export default function Game() {
                       </div>
                     </div>
                   )}
+                  <div ref={endOfHistoryRef} className="h-4 w-full" />
                 </div>
               </div>
             </div>
