@@ -280,7 +280,7 @@ export default function Game() {
                   <Avatar className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-zinc-900 shadow-2xl ring-4 ring-zinc-800 bg-zinc-900 overflow-hidden isolate relative translate-z-0">
                     <AvatarImage 
                       src={`https://cdn.nba.com/headshots/nba/latest/260x190/${currentId}.png`} 
-                      className="object-cover scale-[1.3] translate-y-3"
+                      className="object-cover scale-[1.5] translate-y-6"
                       onError={handleImageError}
                     />
                     <AvatarFallback className="bg-zinc-800 text-zinc-500 text-3xl font-bold">{gameData.players[currentId].charAt(0)}</AvatarFallback>
@@ -299,7 +299,7 @@ export default function Game() {
                         <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-2 border-zinc-800 bg-zinc-950 group-hover:ring-2 group-hover:ring-blue-500/50 overflow-hidden isolate relative translate-z-0">
                           <AvatarImage 
                             src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                            className="object-cover scale-[1.3] translate-y-3"
+                            className="object-cover scale-[1.5] translate-y-6"
                             onError={handleImageError}
                           />
                           <AvatarFallback className="bg-zinc-800 text-xs">NBA</AvatarFallback>
@@ -359,7 +359,7 @@ export default function Game() {
                           <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                             <AvatarImage 
                               src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                              className="object-cover scale-[1.3] translate-y-1.5"
+                              className="object-cover scale-[1.5] translate-y-3"
                               onError={handleImageError}
                             />
                           </Avatar>
@@ -439,7 +439,7 @@ export default function Game() {
                           <Avatar className="w-12 h-12 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                             <AvatarImage 
                               src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
-                              className="object-cover scale-[1.3] translate-y-1.5"
+                              className="object-cover scale-[1.5] translate-y-3"
                               onError={handleImageError}
                             />
                           </Avatar>
@@ -504,7 +504,7 @@ export default function Game() {
                                 </span>
                                 <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate opacity-60">
                                   {decoyId && (
-                                    <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${decoyId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                                    <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${decoyId}.png`} className="object-cover scale-[1.5] translate-y-3" onError={handleImageError} />
                                   )}
                                 </Avatar>
                                 <span className="font-bold text-xs sm:text-sm text-zinc-500 mt-2 text-center leading-tight">
@@ -553,7 +553,7 @@ export default function Game() {
                               <Check className="w-3 h-3 shrink-0"/> Correct
                             </span>
                             <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border border-zinc-700 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate">
-                              <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.3] translate-y-1.5" onError={handleImageError} />
+                              <AvatarImage src={`https://cdn.nba.com/headshots/nba/latest/260x190/${correctTeammateId}.png`} className="object-cover scale-[1.5] translate-y-3" onError={handleImageError} />
                             </Avatar>
                             <span className="font-bold text-xs sm:text-sm text-zinc-200 mt-2 text-center leading-tight">{gameData.players[correctTeammateId]}</span>
                           </div>
