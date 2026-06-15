@@ -636,8 +636,8 @@ export default function Game() {
                               {/* Spacer to push player box to bottom align */}
                               <div className="flex-1"></div>
 
-                              {/* Standard Clean Box for Left Player */}
-                              <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 flex flex-col items-center shadow-sm relative z-10 mt-auto shrink-0">
+                              {/* Standard Clean Box for Left Player with STRICT FIXED DIMENSIONS */}
+                              <div className="w-36 sm:w-44 h-[160px] sm:h-[190px] bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 flex flex-col items-center justify-start shadow-sm relative z-10 mt-auto shrink-0">
                                 <span className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1 text-center">
                                   <X className="w-3 h-3 shrink-0"/>
                                   {wrongGuessId ? "Your Guess" : "Incorrect"}
@@ -699,8 +699,8 @@ export default function Game() {
                           {/* Bottom Spacer matches main chain padding */}
                           <div className="h-6 sm:h-8 w-full shrink-0"></div>
 
-                          {/* Standard Clean Box for Right Player */}
-                          <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 flex flex-col items-center shadow-sm relative z-10 mt-auto shrink-0">
+                          {/* Standard Clean Box for Right Player with STRICT FIXED DIMENSIONS */}
+                          <div className="w-36 sm:w-44 h-[160px] sm:h-[190px] bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 flex flex-col items-center justify-start shadow-sm relative z-10 mt-auto shrink-0">
                             <span className="text-[10px] sm:text-xs font-black text-green-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1 text-center">
                               <Check className="w-3 h-3 shrink-0"/> Correct
                             </span>
