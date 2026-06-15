@@ -376,7 +376,8 @@ export default function Game() {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
               
               <Card className="w-full border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                {/* Image Background with Reduced Blur */}
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm scale-[1.02]"></div>
                 
                 <CardHeader className="text-center pt-12 pb-6 relative z-10">
                   <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-24 h-24 sm:w-28 sm:h-28 rounded-[2rem] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(37,99,235,0.4)] rotate-3 border border-blue-400/20">
