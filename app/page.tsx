@@ -33,14 +33,52 @@ const getStartYear = (yearStr: string) => {
   return y;
 };
 
-const sortAndGroupStints = (teams: string[], years: string[]) => {
+const getStintEndSeasonStartYear = (stintStr: string) => {
+  if (!stintStr) return 0;
+  const seasons = stintStr.split(/\s+-\s+/);
+  return getStartYear(seasons[seasons.length - 1]);
+};
+
+// Pre-processes the original timeline to merge identical teams that have a 1-season gap
+const preProcessStints = (teams: string[], years: string[]) => {
   const t = teams || [];
   const y = years || [];
   const maxLen = Math.max(t.length, y.length);
+  const mergedTeams: string[] = [];
+  const mergedYears: string[] = [];
+
+  for (let i = 0; i < maxLen; i++) {
+    const team = t[i] || "";
+    const year = y[i] || "";
+    if (!team) continue;
+
+    if (mergedTeams.length > 0 && mergedTeams[mergedTeams.length - 1] === team) {
+      const prevYear = mergedYears[mergedYears.length - 1];
+      const prevEndStart = getStintEndSeasonStartYear(prevYear);
+      const currStartStart = getStartYear(year);
+
+      // If the gap is 1 season (diff <= 2) and they played for NO other teams in between
+      if (currStartStart - prevEndStart <= 2) {
+        const startSeason = prevYear.split(/\s+-\s+/)[0];
+        const endSeasons = year.split(/\s+-\s+/);
+        const endSeason = endSeasons[endSeasons.length - 1];
+        mergedYears[mergedYears.length - 1] = `${startSeason} - ${endSeason}`;
+        continue;
+      }
+    }
+    
+    mergedTeams.push(team);
+    mergedYears.push(year);
+  }
+  return { teams: mergedTeams, years: mergedYears };
+};
+
+const sortAndGroupStints = (rawTeams: string[], rawYears: string[]) => {
+  const { teams: t, years: y } = preProcessStints(rawTeams, rawYears);
   
   const grouped: Record<string, string[]> = {};
   
-  for (let i = 0; i < maxLen; i++) {
+  for (let i = 0; i < t.length; i++) {
     const team = t[i] || "";
     const year = y[i] || "";
     if (!team) continue;
@@ -188,6 +226,7 @@ export default function Game() {
     setWrongGuessId(null);
     
     const playerIds = Object.keys(gameData.network);
+    
     let startId = playerIds[Math.floor(Math.random() * playerIds.length)];
     
     while (Object.keys(gameData.network[startId]).length === 0) {
@@ -224,7 +263,8 @@ export default function Game() {
       return;
     }
 
-    const correct = validTeammates[Math.floor(Math.random() * validTeammates.length)];
+    let correct = validTeammates[Math.floor(Math.random() * validTeammates.length)];
+
     setCorrectTeammateId(correct);
 
     const allPlayerIds = Object.keys(gameData.players);
