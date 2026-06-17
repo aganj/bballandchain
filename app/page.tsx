@@ -656,17 +656,17 @@ export default function Game() {
                   {correctTeammateId && (
                     <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-1">
                       
-                      {/* Main trunk dropping down */}
+                      {/* Main trunk dropping down seamlessly from the last box */}
                       <div className="w-[2px] h-6 sm:h-8 bg-zinc-800/80 shrink-0"></div>
 
                       {/* Fork Container */}
-                      <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-1">
+                      <div className="w-full max-w-[95%] sm:max-w-[480px] flex flex-col items-center relative z-10 mt-0 pb-1 history-fork">
                         
                         {/* Horizontal split line exactly centered across the top of the two drop lines */}
                         <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-zinc-800/80 z-0"></div>
                         
-                        {/* TOP SECTION: Drop Lines and Badges */}
-                        <div className="flex w-full relative items-stretch">
+                        {/* TOP ROW: Drop Lines and Badges */}
+                        <div className="flex w-full relative items-stretch h-[80px] sm:h-[96px]">
                           {choices.map((id, choiceIdx) => {
                             const isCorrect = (id === correctTeammateId);
                             const lastVisitedId = visitedPlayers[visitedPlayers.length - 1];
@@ -681,50 +681,46 @@ export default function Game() {
                             }
 
                             return (
-                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 flex flex-col items-center relative">
-                                {sharedData ? (
-                                  <>
-                                    <div className="w-[2px] h-6 sm:h-8 bg-zinc-800/80 shrink-0"></div>
-                                    <div className="w-full flex justify-center relative z-10">
-                                      <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex items-center justify-center flex-wrap gap-x-4 gap-y-3 shadow-md w-max max-w-[160%] sm:max-w-[130%] text-center relative right-[10%] sm:right-0">
-                                        {sortedTeams.map((teamAbbrev, tIdx) => {
-                                          if (!teamAbbrev) return null;
-                                          return (
-                                            <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5">
-                                              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
-                                                {TEAM_LOGOS[teamAbbrev] ? (
-                                                  <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
-                                                ) : (
-                                                  <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
-                                                )}
-                                              </div>
-                                              <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
-                                                {teamAbbrev} <span className="text-zinc-500 ml-1">{formatYearsList(sortedYearsArray[tIdx])}</span>
-                                              </span>
+                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 relative h-full">
+                                <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
+                                {sharedData && (
+                                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                    <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-center flex-nowrap gap-x-3 shadow-md shrink-0 whitespace-nowrap pointer-events-auto">
+                                      {sortedTeams.map((teamAbbrev, tIdx) => {
+                                        if (!teamAbbrev) return null;
+                                        return (
+                                          <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5">
+                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                              {TEAM_LOGOS[teamAbbrev] ? (
+                                                <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
+                                              ) : (
+                                                <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
+                                              )}
                                             </div>
-                                          );
-                                        })}
-                                      </div>
+                                            <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                              {teamAbbrev} <span className="text-zinc-500 ml-1">{formatYearsList(sortedYearsArray[tIdx])}</span>
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                    <div className="w-[2px] h-6 sm:h-8 bg-zinc-800/80 shrink-0 mt-auto"></div>
-                                  </>
-                                ) : (
-                                  <div className="w-[2px] h-full absolute top-0 left-1/2 -translate-x-1/2 bg-zinc-800/80 z-0"></div>
+                                  </div>
                                 )}
                               </div>
                             );
                           })}
                         </div>
 
-                        {/* BOTTOM SECTION: Player Boxes */}
-                        <div className="flex w-full items-stretch justify-between mt-0">
+                        {/* BOTTOM ROW: The Cards */}
+                        <div className="flex w-full items-stretch justify-center mt-0 px-1 sm:px-2">
                           {choices.map((id, choiceIdx) => {
                             const isCorrect = (id === correctTeammateId);
                             const isGuess = (wrongGuessId && id === wrongGuessId);
 
                             return (
                               <div key={`fork-bottom-${choiceIdx}`} className="w-1/2 flex justify-center px-1.5 sm:px-3">
-                                <div className="w-36 sm:w-44 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 sm:px-4 sm:py-4 flex flex-col items-center justify-start shadow-sm relative z-10 h-full">
+                                {/* Using h-full ensures both boxes stretch perfectly to match whichever column is inherently taller */}
+                                <div className="w-36 sm:w-44 h-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 sm:px-4 sm:py-4 flex flex-col items-center justify-start shadow-sm relative z-10">
                                   
                                   {isCorrect ? (
                                     <span className="text-[10px] sm:text-xs font-black text-green-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1 text-center shrink-0">
