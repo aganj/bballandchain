@@ -236,6 +236,7 @@ export default function Game() {
     setCurrentId(startId);
     setVisitedPlayers([startId]);
     generateRound(startId, [startId], 0);
+    
     setGameState('playing');
   };
 
@@ -525,11 +526,11 @@ export default function Game() {
                           
                           {idx < visitedPlayers.length - 1 && connection && (
                             <div className="py-3 sm:py-4 w-full flex justify-center relative z-10">
-                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex items-center justify-center flex-wrap gap-x-4 gap-y-3 shadow-md w-max max-w-[95%] text-center">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex flex-col items-center justify-center gap-2 sm:gap-3 shadow-md w-max max-w-[95%] text-center">
                                 {sortedTeams.map((teamAbbrev, tIdx) => {
                                   if (!teamAbbrev) return null;
                                   return (
-                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5">
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
                                       <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                         {TEAM_LOGOS[teamAbbrev] ? (
                                           <img 
@@ -622,11 +623,11 @@ export default function Game() {
                           
                           {idx < visitedPlayers.length - 1 && connection && (
                             <div className="py-3 sm:py-4 w-full flex justify-center relative z-10">
-                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex items-center justify-center flex-wrap gap-x-4 gap-y-3 shadow-md w-max max-w-[95%] text-center">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex flex-col items-center justify-center gap-2 sm:gap-3 shadow-md w-max max-w-[95%] text-center">
                                 {sortedTeams.map((teamAbbrev, tIdx) => {
                                   if (!teamAbbrev) return null;
                                   return (
-                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5">
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
                                       <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                         {TEAM_LOGOS[teamAbbrev] ? (
                                           <img 
@@ -681,15 +682,15 @@ export default function Game() {
                             }
 
                             return (
-                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 relative h-full">
+                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 relative h-full flex justify-center">
                                 <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
                                 {sharedData && (
-                                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                                    <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-center flex-nowrap gap-x-3 shadow-md shrink-0 whitespace-nowrap pointer-events-auto">
+                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-max">
+                                    <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 flex flex-col items-center justify-center gap-2 shadow-md shrink-0 pointer-events-auto w-max text-center">
                                       {sortedTeams.map((teamAbbrev, tIdx) => {
                                         if (!teamAbbrev) return null;
                                         return (
-                                          <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5">
+                                          <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
                                             <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                               {TEAM_LOGOS[teamAbbrev] ? (
                                                 <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
