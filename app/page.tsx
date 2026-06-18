@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check } from "lucide-react";
+import { Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
@@ -236,7 +236,6 @@ export default function Game() {
     setCurrentId(startId);
     setVisitedPlayers([startId]);
     generateRound(startId, [startId], 0);
-    
     setGameState('playing');
   };
 
@@ -355,10 +354,9 @@ export default function Game() {
       <header className="w-full max-w-xl flex justify-between items-center mb-4 flex-shrink-0 z-10 relative">
         <div 
           onClick={goHome}
-          className="flex items-center gap-2 text-zinc-100 cursor-pointer hover:opacity-80 transition-opacity active:scale-95 group"
+          className="flex items-center justify-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-700 transition-all active:scale-95 group"
         >
-          <Link2 className="w-6 h-6 text-blue-500 group-hover:rotate-12 transition-transform" />
-          <span className="font-black text-xl md:text-2xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">BBall and Chain</span>
+          <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">BBall and Chain</span>
         </div>
         {gameState === 'playing' && (
           <div className="flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
@@ -372,29 +370,34 @@ export default function Game() {
 
         {/* Start Screen */}
         {gameState === 'start' && (
-          <div className="flex flex-col items-center justify-center h-full w-full animate-in fade-in zoom-in duration-500 pb-10">
-            <div className="relative w-full">
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+            <div className="relative w-full h-full flex flex-col flex-1">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
               
-              <Card className="w-full border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden flex flex-col justify-center min-h-[480px] sm:min-h-[520px]">
+              {/* Card is now explicitly h-full and flex-1 so it takes up all available vertical space! */}
+              <Card 
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-[2rem] sm:!rounded-[3rem] flex flex-col isolate"
+                style={{ transform: 'translateZ(0)' }}
+              >
                 
-                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20"></div>
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-[2rem] sm:!rounded-[3rem]"></div>
                 
-                <CardHeader className="text-center pt-12 pb-6 relative z-10">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 mb-8 mx-auto pointer-events-none" aria-hidden="true"></div>
+                {/* justify-evenly spreads the elements across the massive new vertical height evenly */}
+                <div className="relative z-10 flex flex-col items-center justify-evenly flex-1 p-6 py-12 sm:p-12 sm:py-16 text-center h-full">
                   
                   <CardTitle className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1]">
                     The Ultimate<br/>Teammate Trivia
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center pb-12 px-6 md:px-10 relative z-10 flex flex-col gap-10 mb-4">
-                  <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto">
+                  
+                  <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2">
                     Connect active NBA players who have shared a roster. One wrong link or an expired shot clock ends your streak.
                   </p>
+                  
                   <Button size="lg" className="w-full max-w-sm mx-auto bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-xl" onClick={startGame}>
                     Start New Chain
                   </Button>
-                </CardContent>
+
+                </div>
               </Card>
             </div>
           </div>
