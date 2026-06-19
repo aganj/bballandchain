@@ -328,28 +328,28 @@ export default function Game() {
   };
 
   if (fetchError) return (
-    <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-6 text-center overflow-hidden">
-      <Card className="max-w-md w-full border-red-900/50 bg-red-950/20 shadow-xl backdrop-blur-sm">
+    <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-6 text-center overflow-hidden touch-none">
+      <Card className="max-w-md w-full border-red-900/50 bg-red-950/20 shadow-xl backdrop-blur-sm rounded-3xl">
         <CardHeader>
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-2" />
           <CardTitle className="text-xl text-zinc-100">Data Connection Lost</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-zinc-400 text-sm font-mono bg-black/50 p-3 rounded-md">{fetchError}</p>
+          <p className="text-zinc-400 text-sm font-mono bg-black/50 p-3 rounded-2xl">{fetchError}</p>
         </CardContent>
       </Card>
     </div>
   );
 
   if (!gameData) return (
-    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center overflow-hidden touch-none">
       <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
       <p className="text-zinc-500 font-bold tracking-widest uppercase text-sm animate-pulse">Initializing Roster...</p>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 w-full overflow-hidden bg-zinc-950 text-zinc-100 flex flex-col items-center p-3 sm:p-6 font-sans selection:bg-blue-500/30">
+    <div className="fixed inset-0 h-[100dvh] w-full overflow-hidden overscroll-none touch-none bg-zinc-950 text-zinc-100 flex flex-col items-center p-3 sm:p-6 font-sans selection:bg-blue-500/30">
       
       <header className="w-full max-w-xl flex justify-between items-center mb-4 flex-shrink-0 z-10 relative">
         <div 
@@ -366,23 +366,21 @@ export default function Game() {
         )}
       </header>
 
-      <div className="w-full max-w-xl flex-1 flex flex-col relative overflow-hidden">
+      <div className="w-full max-w-xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
 
         {/* Start Screen */}
         {gameState === 'start' && (
           <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
-            <div className="relative w-full h-full flex flex-col flex-1">
+            <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
               
-              {/* Card is now explicitly h-full and flex-1 so it takes up all available vertical space! */}
               <Card 
-                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-[2rem] sm:!rounded-[3rem] flex flex-col isolate"
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-3xl flex flex-col isolate"
                 style={{ transform: 'translateZ(0)' }}
               >
                 
-                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-[2rem] sm:!rounded-[3rem]"></div>
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
                 
-                {/* justify-evenly spreads the elements across the massive new vertical height evenly */}
                 <div className="relative z-10 flex flex-col items-center justify-evenly flex-1 p-6 py-12 sm:p-12 sm:py-16 text-center h-full">
                   
                   <CardTitle className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1]">
@@ -393,7 +391,7 @@ export default function Game() {
                     Connect active NBA players who have shared a roster. One wrong link or an expired shot clock ends your streak.
                   </p>
                   
-                  <Button size="lg" className="w-full max-w-sm mx-auto bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-xl" onClick={startGame}>
+                  <Button size="lg" className="w-full max-w-sm mx-auto bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                     Start New Chain
                   </Button>
 
@@ -405,11 +403,11 @@ export default function Game() {
 
         {/* Playing Screen */}
         {gameState === 'playing' && currentId && (
-          <div className="flex flex-col flex-1 h-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex flex-col flex-1 h-full min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <div className="flex flex-col items-center justify-center flex-1 w-full pb-6 sm:pb-12">
               
               <div className="flex flex-col items-center justify-center w-full flex-shrink-0 mb-6 sm:mb-8">
-                <div className="bg-[#0a0000] border-[4px] sm:border-[6px] border-zinc-900 rounded-md px-5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.9),inset_0_0_15px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
+                <div className="bg-[#0a0000] border-[4px] sm:border-[6px] border-zinc-900 rounded-2xl px-5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.9),inset_0_0_15px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
                   <div className="absolute top-0 left-0 w-full h-[45%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
                   <div className="absolute inset-0 bg-red-500/5 pointer-events-none"></div>
                   <div className="w-full text-center flex items-center justify-center mt-1">
@@ -442,7 +440,7 @@ export default function Game() {
                     <Card 
                       key={id} 
                       onClick={() => handleGuess(id)}
-                      className="group cursor-pointer border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-blue-500/50 transition-all duration-200 active:scale-[0.97] overflow-hidden shadow-md"
+                      className="group cursor-pointer border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-blue-500/50 transition-all duration-200 active:scale-[0.97] overflow-hidden shadow-md rounded-2xl sm:rounded-[1.5rem]"
                     >
                       <CardContent className="p-3 sm:p-5 flex flex-col items-center justify-center gap-2 sm:gap-3">
                         <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-2 border-zinc-800 bg-zinc-950 group-hover:ring-2 group-hover:ring-blue-500/50 overflow-hidden isolate relative translate-z-0">
@@ -467,26 +465,29 @@ export default function Game() {
         {/* Victory Screen */}
         {gameState === 'victory' && (
           <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
-            <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-3 overflow-hidden relative flex-shrink-0">
-              <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
-              <CardHeader className="text-center pt-6 pb-2">
-                <Trophy className="w-12 h-12 text-amber-500 mx-auto mb-2 animate-bounce" />
-                <CardTitle className="text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
+            <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-2 overflow-hidden relative flex-shrink-0 rounded-3xl">
+              <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80"></div>
+              
+              <CardHeader className="text-center pt-4 pb-1">
+                <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-amber-500 mx-auto mb-2 animate-bounce" />
+                <CardTitle className="text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
                   CHAMPION!
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-center pb-3 md:pb-4">
-                <p className="text-zinc-400 text-xs sm:text-sm uppercase tracking-widest font-bold mb-2 max-w-xs mx-auto leading-relaxed">
+              
+              <CardContent className="text-center pb-2 pt-1 px-4">
+                <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-2 max-w-xs mx-auto leading-relaxed">
                   Unbelievable! You completely cleared the available network path!
                 </p>
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Perfect Streak</div>
-                <div className="text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">{streak}</div>
+                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Perfect Streak</div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">{streak}</div>
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 md:pb-5 border-t border-zinc-800/50 pt-3 bg-amber-500/5">
-                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-12 font-bold" onClick={startGame}>
+              
+              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5">
+                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
-                <Button className="h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20" onClick={handleShare}>
+                <Button className="h-11 sm:h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20 rounded-2xl" onClick={handleShare}>
                   <Share className="w-4 h-4 mr-2" /> Share Victory
                 </Button>
               </CardFooter>
@@ -494,8 +495,8 @@ export default function Game() {
 
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Winning Chain History</h3>
-              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-4 flex-1" ref={scrollContainerRef}>
+              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
                   
                   <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
                     {visitedPlayers.length > 1 && (
@@ -516,7 +517,7 @@ export default function Game() {
 
                       return (
                         <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                          <div className="flex flex-col items-center bg-zinc-900 rounded-xl p-3 sm:p-4 border border-zinc-800/50 w-36 sm:w-44 shadow-sm shrink-0">
+                          <div className="flex flex-col items-center bg-zinc-900 rounded-[1.5rem] p-3 sm:p-4 border border-zinc-800/50 w-36 sm:w-44 shadow-sm shrink-0">
                             <Avatar className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                               <AvatarImage 
                                 src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
@@ -529,12 +530,12 @@ export default function Game() {
                           
                           {idx < visitedPlayers.length - 1 && connection && (
                             <div className="py-3 sm:py-4 w-full flex justify-center relative z-10">
-                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex flex-col items-center justify-center gap-2 sm:gap-3 shadow-md w-max max-w-[95%] text-center">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 flex flex-col items-center justify-center gap-1.5 sm:gap-2 shadow-md w-max max-w-[95%] text-center">
                                 {sortedTeams.map((teamAbbrev, tIdx) => {
                                   if (!teamAbbrev) return null;
                                   return (
-                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
-                                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2 w-max">
+                                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                         {TEAM_LOGOS[teamAbbrev] ? (
                                           <img 
                                             src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
@@ -545,7 +546,7 @@ export default function Game() {
                                           <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
                                         )}
                                       </div>
-                                      <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                      <span className="text-[11px] sm:text-[13px] font-bold text-zinc-300 tracking-widest whitespace-nowrap">
                                         {teamAbbrev} <span className="text-zinc-500 ml-1">{formatYearsList(sortedYearsArray[tIdx])}</span>
                                       </span>
                                     </div>
@@ -558,7 +559,7 @@ export default function Game() {
                       );
                     })}
                   </div>
-                  <div className="h-4 w-full" />
+                  <div className="h-2 w-full shrink-0" />
                 </div>
               </div>
             </div>
@@ -568,20 +569,23 @@ export default function Game() {
         {/* Game Over Screen */}
         {gameState === 'gameover' && (
           <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
-            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-3 overflow-hidden relative flex-shrink-0">
-              <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-red-600 via-orange-500 to-red-600"></div>
-              <CardHeader className="text-center pt-5 pb-2">
+            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-2 overflow-hidden relative flex-shrink-0 rounded-3xl">
+              <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-80"></div>
+              
+              <CardHeader className="text-center pt-4 pb-1">
                 <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">Chain Broken</CardTitle>
               </CardHeader>
-              <CardContent className="text-center pb-3 md:pb-4">
+              
+              <CardContent className="text-center pb-2 pt-1 px-4">
                 <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Link Streak</div>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500">{streak}</div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">{streak}</div>
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-2 px-4 pb-4 md:pb-5 border-t border-zinc-800/50 pt-3 bg-black/20">
-                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-12 font-bold" onClick={startGame}>
+              
+              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-black/20">
+                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
-                <Button className="h-12 bg-blue-600 text-white hover:bg-blue-500 font-bold" onClick={handleShare}>
+                <Button className="h-11 sm:h-12 bg-blue-600 text-white hover:bg-blue-500 font-bold rounded-2xl" onClick={handleShare}>
                   <Share className="w-4 h-4 mr-2" /> Share
                 </Button>
               </CardFooter>
@@ -589,8 +593,8 @@ export default function Game() {
 
             <div className="flex-1 flex flex-col min-h-0">
               <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
-              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-xl overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar p-4 flex-1 relative" ref={scrollContainerRef}>
+              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
                   
                   {/* Valid Player History Block */}
                   <div className="relative flex flex-col items-center w-full max-w-sm mx-auto">
@@ -613,7 +617,7 @@ export default function Game() {
 
                       return (
                         <div key={id + idx} className="flex flex-col items-center w-full relative z-10">
-                          <div className="flex flex-col items-center bg-zinc-900 rounded-xl p-3 sm:p-4 border border-zinc-800/50 w-36 sm:w-44 shadow-sm shrink-0">
+                          <div className="flex flex-col items-center bg-zinc-900 rounded-[1.5rem] p-3 sm:p-4 border border-zinc-800/50 w-36 sm:w-44 shadow-sm shrink-0">
                             <Avatar className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-zinc-800 bg-zinc-950 shrink-0 shadow-sm overflow-hidden isolate relative z-10">
                               <AvatarImage 
                                 src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
@@ -626,12 +630,12 @@ export default function Game() {
                           
                           {idx < visitedPlayers.length - 1 && connection && (
                             <div className="py-3 sm:py-4 w-full flex justify-center relative z-10">
-                              <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-3 flex flex-col items-center justify-center gap-2 sm:gap-3 shadow-md w-max max-w-[95%] text-center">
+                              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 flex flex-col items-center justify-center gap-1.5 sm:gap-2 shadow-md w-max max-w-[95%] text-center">
                                 {sortedTeams.map((teamAbbrev, tIdx) => {
                                   if (!teamAbbrev) return null;
                                   return (
-                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
-                                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                    <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2 w-max">
+                                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                         {TEAM_LOGOS[teamAbbrev] ? (
                                           <img 
                                             src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} 
@@ -642,7 +646,7 @@ export default function Game() {
                                           <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
                                         )}
                                       </div>
-                                      <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                      <span className="text-[11px] sm:text-[13px] font-bold text-zinc-300 tracking-widest whitespace-nowrap">
                                         {teamAbbrev} <span className="text-zinc-500 ml-1">{formatYearsList(sortedYearsArray[tIdx])}</span>
                                       </span>
                                     </div>
@@ -658,19 +662,19 @@ export default function Game() {
 
                   {/* Fork Block */}
                   {correctTeammateId && (
-                    <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-1">
+                    <div className="w-full flex flex-col items-center relative z-10 mt-0 pb-0 mb-0 history-fork">
                       
                       {/* Main trunk dropping down seamlessly from the last box */}
-                      <div className="w-[2px] h-6 sm:h-8 bg-zinc-800/80 shrink-0"></div>
+                      <div className="w-[2px] h-3 sm:h-4 bg-zinc-800/80 shrink-0"></div>
 
                       {/* Fork Container */}
-                      <div className="w-full max-w-[95%] sm:max-w-[480px] flex flex-col items-center relative z-10 mt-0 pb-1 history-fork">
+                      <div className="w-full max-w-[95%] sm:max-w-[480px] flex flex-col items-center relative z-10 mt-0 pb-0">
                         
                         {/* Horizontal split line exactly centered across the top of the two drop lines */}
                         <div className="absolute top-0 left-[25%] right-[25%] h-[2px] bg-zinc-800/80 z-0"></div>
                         
                         {/* TOP ROW: Drop Lines and Badges */}
-                        <div className="flex w-full relative items-stretch h-[80px] sm:h-[96px]">
+                        <div className="flex w-full relative items-stretch">
                           {choices.map((id, choiceIdx) => {
                             const isCorrect = (id === correctTeammateId);
                             const lastVisitedId = visitedPlayers[visitedPlayers.length - 1];
@@ -685,23 +689,23 @@ export default function Game() {
                             }
 
                             return (
-                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 relative h-full flex justify-center">
+                              <div key={`fork-top-${choiceIdx}`} className="w-1/2 relative flex items-start justify-center py-3 sm:py-4">
                                 <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-zinc-800/80 z-0"></div>
                                 {sharedData && (
-                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-max">
-                                    <div className="bg-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 flex flex-col items-center justify-center gap-2 shadow-md shrink-0 pointer-events-auto w-max text-center">
+                                  <div className="relative z-10 w-max">
+                                    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 flex flex-col items-center justify-center gap-1.5 sm:gap-2 shadow-md shrink-0 pointer-events-auto w-max text-center">
                                       {sortedTeams.map((teamAbbrev, tIdx) => {
                                         if (!teamAbbrev) return null;
                                         return (
-                                          <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-2 sm:gap-2.5 w-max">
-                                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
+                                          <div key={`${teamAbbrev}-${tIdx}`} className="flex items-center gap-1.5 sm:gap-2 w-max">
+                                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center border border-zinc-700 shrink-0 overflow-hidden shadow-sm">
                                               {TEAM_LOGOS[teamAbbrev] ? (
                                                 <img src={`https://cdn.nba.com/logos/nba/${TEAM_LOGOS[teamAbbrev]}/global/L/logo.svg`} alt={teamAbbrev} className="w-full h-full object-contain p-[1px] scale-[1.15]" />
                                               ) : (
                                                 <span className="text-[8px] sm:text-[10px] font-black text-black">{teamAbbrev}</span>
                                               )}
                                             </div>
-                                            <span className="text-xs sm:text-sm font-bold text-zinc-300 tracking-widest whitespace-nowrap">
+                                            <span className="text-[11px] sm:text-[13px] font-bold text-zinc-300 tracking-widest whitespace-nowrap">
                                               {teamAbbrev} <span className="text-zinc-500 ml-1">{formatYearsList(sortedYearsArray[tIdx])}</span>
                                             </span>
                                           </div>
@@ -724,7 +728,7 @@ export default function Game() {
                             return (
                               <div key={`fork-bottom-${choiceIdx}`} className="w-1/2 flex justify-center px-1.5 sm:px-3">
                                 {/* Using h-full ensures both boxes stretch perfectly to match whichever column is inherently taller */}
-                                <div className="w-36 sm:w-44 h-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 sm:px-4 sm:py-4 flex flex-col items-center justify-start shadow-sm relative z-10">
+                                <div className="w-36 sm:w-44 h-full bg-zinc-900 border border-zinc-800 rounded-[1.5rem] px-3 py-3 sm:px-4 sm:py-4 flex flex-col items-center justify-start shadow-sm relative z-10">
                                   
                                   {isCorrect ? (
                                     <span className="text-[10px] sm:text-xs font-black text-green-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1 text-center shrink-0">
@@ -754,7 +758,7 @@ export default function Game() {
                       </div>
                     </div>
                   )}
-                  <div className="h-4 w-full" />
+                  <div className="h-2 w-full shrink-0" />
                 </div>
               </div>
             </div>
