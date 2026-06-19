@@ -131,7 +131,7 @@ export default function Game() {
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
   const [wrongGuessId, setWrongGuessId] = useState<string | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
-  const [streak, setStreak] = useState(0);
+  const [chainLength, setChainLength] = useState(1);
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
   
   const [timeLeft, setTimeLeft] = useState(100);
@@ -221,7 +221,7 @@ export default function Game() {
 
   const startGame = () => {
     if (!gameData) return;
-    setStreak(0);
+    setChainLength(1);
     setVisitedPlayers([]);
     setWrongGuessId(null);
     
@@ -235,11 +235,11 @@ export default function Game() {
     
     setCurrentId(startId);
     setVisitedPlayers([startId]);
-    generateRound(startId, [startId], 0);
+    generateRound(startId, [startId], 1);
     setGameState('playing');
   };
 
-  const generateRound = (playerId: string, currentVisited: string[], currentStreak: number) => {
+  const generateRound = (playerId: string, currentVisited: string[], currentChainLength: number) => {
     if (!gameData) return;
     
     const teammates = Object.keys(gameData.network[playerId]);
@@ -253,11 +253,7 @@ export default function Game() {
     }
 
     if (validTeammates.length === 0) {
-      if (currentStreak >= 100) {
-        setGameState('victory');
-      } else {
-        setGameState('gameover');
-      }
+      setGameState('victory');
       targetTimeRef.current = null;
       clearInterval(timerRef.current as NodeJS.Timeout);
       return;
@@ -285,13 +281,13 @@ export default function Game() {
 
   const handleGuess = (id: string) => {
     if (id === correctTeammateId) {
-      const newStreak = streak + 1;
+      const newChainLength = chainLength + 1;
       const newVisited = [...visitedPlayers, id];
-      setStreak(newStreak);
+      setChainLength(newChainLength);
       setCurrentId(id);
       setVisitedPlayers(newVisited);
       setWrongGuessId(null);
-      generateRound(id, newVisited, newStreak);
+      generateRound(id, newVisited, newChainLength);
     } else {
       setWrongGuessId(id);
       handleGameOver();
@@ -305,9 +301,10 @@ export default function Game() {
   };
 
   const handleShare = async () => {
+    const playerText = chainLength === 1 ? 'player' : 'players';
     const message = gameState === 'victory' 
-      ? `🏆 BBall and Chain: ABSOLUTE CHAMPION! I completely cleared the network with a perfect streak of ${streak}! Can you match perfection?`
-      : `🔗 BBall and Chain: I linked ${streak} NBA players before the chain broke! Can you beat my streak?`;
+      ? `🏆 BBall and Chain: I completely cleared the network with a max chain of ${chainLength}!\n\nbballandchain.com`
+      : `🔗 BBall and Chain: I linked ${chainLength} NBA ${playerText} before the chain broke! Can you beat that?\n\nbballandchain.com`;
     
     if (navigator.share) {
       try {
@@ -360,8 +357,8 @@ export default function Game() {
         </div>
         {gameState === 'playing' && (
           <div className="flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-            <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Streak</span>
-            <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">{streak}</span>
+            <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Active Chain</span>
+            <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">{chainLength}</span>
           </div>
         )}
       </header>
@@ -388,7 +385,7 @@ export default function Game() {
                   </CardTitle>
                   
                   <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2">
-                    Connect active NBA players who have shared a roster. One wrong link or an expired shot clock ends your streak.
+                    Connect active NBA players who have shared a roster. One wrong link or an expired shot clock ends your chain.
                   </p>
                   
                   <Button size="lg" className="w-full max-w-sm mx-auto bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
@@ -468,19 +465,19 @@ export default function Game() {
             <Card className="w-full border-amber-500/50 bg-zinc-900/90 shadow-[0_0_30px_rgba(245,158,11,0.2)] mb-2 overflow-hidden relative flex-shrink-0 rounded-3xl">
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80"></div>
               
-              <CardHeader className="text-center pt-4 pb-1">
-                <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-amber-500 mx-auto mb-2 animate-bounce" />
+              <CardHeader className="text-center pt-3 pb-0">
+                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500 mx-auto mb-1 animate-bounce" />
                 <CardTitle className="text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
-                  CHAMPION!
+                  THAT&apos;S ALL, FOLKS!
                 </CardTitle>
               </CardHeader>
               
               <CardContent className="text-center pb-2 pt-1 px-4">
-                <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-2 max-w-xs mx-auto leading-relaxed">
-                  Unbelievable! You completely cleared the available network path!
+                <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-1 max-w-xs mx-auto leading-relaxed">
+                  You completely ran out of valid teammates to connect!
                 </p>
-                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Perfect Streak</div>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">{streak}</div>
+                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">{chainLength}</div>
               </CardContent>
               
               <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5">
@@ -488,7 +485,7 @@ export default function Game() {
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
                 <Button className="h-11 sm:h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20 rounded-2xl" onClick={handleShare}>
-                  <Share className="w-4 h-4 mr-2" /> Share Victory
+                  <Share className="w-4 h-4 mr-2" /> Share
                 </Button>
               </CardFooter>
             </Card>
@@ -577,11 +574,11 @@ export default function Game() {
               </CardHeader>
               
               <CardContent className="text-center pb-2 pt-1 px-4">
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Link Streak</div>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">{streak}</div>
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">{chainLength}</div>
               </CardContent>
               
-              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-black/20">
+              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-3 border-t border-zinc-800/50 bg-black/20">
                 <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
