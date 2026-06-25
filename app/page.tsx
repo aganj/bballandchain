@@ -125,7 +125,7 @@ const formatYearsList = (yearsList: string[]) => {
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
@@ -348,19 +348,39 @@ export default function Game() {
   return (
     <div className="fixed inset-0 h-[100dvh] w-full overflow-hidden overscroll-none touch-none bg-zinc-950 text-zinc-100 flex flex-col items-center p-3 sm:p-6 font-sans selection:bg-blue-500/30">
       
-      <header className="w-full max-w-xl flex justify-between items-center mb-4 flex-shrink-0 z-10 relative">
+      <header className="w-full max-w-xl h-10 sm:h-12 flex justify-between items-center mb-4 flex-shrink-0 z-50 relative">
+        
+        {/* About Button - Fades in softly on the home screen */}
+        <div 
+          onClick={() => setGameState('about')}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 transition-opacity duration-700 ease-in-out flex items-center justify-center bg-[#0a0a0a] border border-zinc-800 rounded-full shadow-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 group z-50
+          ${gameState === 'start' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        >
+          <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent px-4 py-1.5 whitespace-nowrap">About</span>
+        </div>
+
+        {/* The Animating Main Logo */}
         <div 
           onClick={goHome}
-          className="flex items-center justify-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-700 transition-all active:scale-95 group"
+          className={`absolute flex items-center justify-center rounded-full cursor-pointer transition-all duration-700 ease-in-out z-50 group origin-center
+            ${gameState === 'start'
+              ? 'top-[30dvh] sm:top-[34dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
+              : 'top-1/2 left-0 -translate-y-1/2 translate-x-0 scale-100 bg-[#0a0a0a] border border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 active:scale-95'
+            }
+          `}
         >
-          <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">BBall and Chain</span>
+          <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent px-4 py-1.5 whitespace-nowrap">BBall and Chain</span>
         </div>
-        {gameState === 'playing' && (
-          <div className="flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-            <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Active Chain</span>
-            <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">{chainLength}</span>
-          </div>
-        )}
+
+        {/* Spacer to keep flex layout cleanly anchored */}
+        <div className="flex-1" />
+
+        {/* Active Chain Box (Only visible when Playing, hides instantly otherwise) */}
+        <div className={`flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)] 
+          ${gameState === 'playing' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Active Chain</span>
+          <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">{chainLength}</span>
+        </div>
       </header>
 
       <div className="w-full max-w-xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
@@ -378,20 +398,53 @@ export default function Game() {
                 
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
                 
-                <div className="relative z-10 flex flex-col items-center justify-evenly flex-1 p-6 py-12 sm:p-12 sm:py-16 text-center h-full">
-                  
-                  <CardTitle className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1]">
-                    The Ultimate<br/>Teammate Trivia
-                  </CardTitle>
-                  
-                  <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2">
-                    Connect active NBA players who have shared a roster. One wrong link or an expired shot clock ends your chain.
-                  </p>
-                  
-                  <Button size="lg" className="w-full max-w-sm mx-auto bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
-                    Start New Chain
-                  </Button>
+                <div className="relative z-10 flex flex-col items-center justify-between flex-1 p-6 sm:p-10 text-center h-full">
+                  <div className="flex flex-col items-center justify-center w-full max-w-sm mx-auto">
+                    {/* Placeholder measuring the space the absolute logo visually occupies */}
+                    <div className="h-16 sm:h-20 w-full shrink-0" />
+                    
+                    {/* Moved closer to the logo by reducing mt */}
+                    <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2 mt-[14dvh] sm:mt-[18dvh] mb-10 sm:mb-12">
+                      Connect NBA players who have played together. One wrong link or an expired shot clock ends your chain.
+                    </p>
+                    
+                    <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
+                      Start New Chain
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
 
+        {/* About Screen */}
+        {gameState === 'about' && (
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+            <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+              
+              <Card 
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-3xl flex flex-col isolate"
+                style={{ transform: 'translateZ(0)' }}
+              >
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
+                
+                <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-6 sm:p-10 text-center h-full">
+                  <div className="flex flex-col items-center justify-center w-full flex-1">
+                    <CardTitle className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-6">
+                      About the game
+                    </CardTitle>
+                    <p className="text-zinc-300 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2 mb-4">
+                      BBall and Chain is the ultimate test of your NBA teammate knowledge.
+                    </p>
+                    <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2">
+                      The game presents you with a player and two potential teammates. One extends your chain. The other ends it. Choose wisely.
+                    </p>
+                    <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2 mt-4 font-bold">
+                      Any questions? Feel free to contact me on Instagram: @bballandchain
+                    </p>
+                  </div>
                 </div>
               </Card>
             </div>
@@ -476,7 +529,7 @@ export default function Game() {
                 <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-1 max-w-xs mx-auto leading-relaxed">
                   You completely ran out of valid teammates to connect!
                 </p>
-                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
+                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Max Chain Length</div>
                 <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">{chainLength}</div>
               </CardContent>
               
@@ -485,7 +538,7 @@ export default function Game() {
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
                 </Button>
                 <Button className="h-11 sm:h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20 rounded-2xl" onClick={handleShare}>
-                  <Share className="w-4 h-4 mr-2" /> Share
+                  <Share className="w-4 h-4 mr-2" /> Share Victory
                 </Button>
               </CardFooter>
             </Card>
