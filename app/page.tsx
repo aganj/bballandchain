@@ -130,6 +130,7 @@ export default function Game() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
   const [wrongGuessId, setWrongGuessId] = useState<string | null>(null);
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
   const [chainLength, setChainLength] = useState(1);
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
@@ -232,6 +233,7 @@ export default function Game() {
     setChainLength(1);
     setVisitedPlayers([]);
     setWrongGuessId(null);
+    setSelectedChoiceId(null);
     setAnimatingId(null);
     setAnimatingRects(null);
     setAnimatingMove(false);
@@ -252,6 +254,7 @@ export default function Game() {
 
   const generateRound = (playerId: string, currentVisited: string[], currentChainLength: number) => {
     if (!gameData) return;
+    setSelectedChoiceId(null);
     
     const teammates = Object.keys(gameData.network[playerId]);
     let validTeammates = teammates.filter(id => !currentVisited.includes(id));
@@ -291,7 +294,9 @@ export default function Game() {
   };
 
   const handleGuess = (id: string) => {
-    if (animatingId) return;
+    if (animatingId || selectedChoiceId) return;
+
+    setSelectedChoiceId(id);
 
     if (id === correctTeammateId) {
       // Pad the timer so we don't accidentally game over during the animation 
@@ -305,37 +310,38 @@ export default function Game() {
         const start = startNode.getBoundingClientRect();
         const end = endNode.getBoundingClientRect();
 
-        // Trigger immediate fade-out of the choice boxes
-        setAnimatingId(id);
-        setAnimatingRects({ start, end });
-        setAnimatingMove(false);
-
-        // Wait 75ms for the choices fade to finish *before* sliding the player
+        // Let the tap selection register before fading choices into the slide.
         setTimeout(() => {
-          setAnimatingMove(true);
+          setAnimatingId(id);
+          setAnimatingRects({ start, end });
+          setAnimatingMove(false);
 
-          // Give the slide 500ms to arrive
           setTimeout(() => {
-            const newChainLength = chainLength + 1;
-            const newVisited = [...visitedPlayers, id];
-            
-            // Generate round updates the main UI immediately
-            setChainLength(newChainLength);
-            setCurrentId(id);
-            setVisitedPlayers(newVisited);
-            setWrongGuessId(null);
-            generateRound(id, newVisited, newChainLength);
-            
-            // Let the DOM settle & browser paint for 50ms while the clone covers the jolt, 
-            // then unmount the clone silently.
-            setTimeout(() => {
-              setAnimatingId(null);
-              setAnimatingRects(null);
-              setAnimatingMove(false);
-            }, 50);
+            setAnimatingMove(true);
 
-          }, 500); 
-        }, 75);
+            // Give the slide 500ms to arrive
+            setTimeout(() => {
+              const newChainLength = chainLength + 1;
+              const newVisited = [...visitedPlayers, id];
+              
+              // Generate round updates the main UI immediately
+              setChainLength(newChainLength);
+              setCurrentId(id);
+              setVisitedPlayers(newVisited);
+              setWrongGuessId(null);
+              generateRound(id, newVisited, newChainLength);
+              
+              // Let the DOM settle & browser paint for 50ms while the clone covers the jolt, 
+              // then unmount the clone silently.
+              setTimeout(() => {
+                setAnimatingId(null);
+                setAnimatingRects(null);
+                setAnimatingMove(false);
+              }, 50);
+
+            }, 500); 
+          }, 75);
+        }, 140);
       } else {
         const newChainLength = chainLength + 1;
         const newVisited = [...visitedPlayers, id];
@@ -347,7 +353,7 @@ export default function Game() {
       }
     } else {
       setWrongGuessId(id);
-      handleGameOver();
+      setTimeout(handleGameOver, 180);
     }
   };
 
@@ -418,7 +424,7 @@ export default function Game() {
           onClick={goHome}
           className={`absolute flex items-center justify-center rounded-full cursor-pointer transition-all duration-700 ease-in-out z-50 group origin-center
             ${gameState === 'start'
-              ? 'top-[30dvh] sm:top-[34dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
+              ? 'top-[29dvh] sm:top-[33dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
               : 'top-1/2 left-0 -translate-y-1/2 translate-x-0 scale-100 bg-[#0a0a0a] border border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 active:scale-95'
             }
           `}
@@ -450,15 +456,17 @@ export default function Game() {
                 
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
                 
-                <div className="relative z-10 flex flex-col items-center justify-between flex-1 p-6 sm:p-10 text-center h-full">
-                  <div className="flex flex-col items-center justify-center w-full max-w-sm mx-auto">
-                    <div className="h-16 sm:h-20 w-full shrink-0" />
-                    <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2 mt-[14dvh] sm:mt-[18dvh] mb-10 sm:mb-12">
+                <div className="relative z-10 flex flex-col items-center flex-1 p-6 sm:p-10 text-center h-full">
+                  <div className="flex h-full w-full max-w-sm flex-col items-center mx-auto">
+                    <div className="h-[20dvh] sm:h-[24dvh] w-full shrink-0" />
+                    <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2">
                       Connect NBA players who have played together. One wrong link or an expired shot clock ends your chain.
                     </p>
+                    <div className="flex-1 min-h-10" />
                     <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                       Start New Chain
                     </Button>
+                    <div className="h-20 sm:h-24 w-full shrink-0" />
                   </div>
                 </div>
               </Card>
@@ -538,21 +546,43 @@ export default function Game() {
                   </div>
                 </div>
 
-                {/* Choices Array - Instantly fades out prior to animation */}
+                {/* Choices Array - selected choice briefly registers before animation */}
                 <div 
                   key={chainLength} 
                   className={`grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-sm sm:max-w-md mx-auto 
                     ${animatingId ? 'opacity-0 transition-opacity duration-75' : 'animate-in fade-in duration-300'}`}
                 >
-                  {choices.map(id => (
+                  {choices.map(id => {
+                    const isSelected = selectedChoiceId === id;
+                    const isCorrectSelection = isSelected && id === correctTeammateId;
+
+                    return (
                     <Card 
                       key={id} 
                       onClick={() => handleGuess(id)}
-                      className="group cursor-pointer border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 transition-colors duration-200 active:scale-[0.97] overflow-hidden shadow-md rounded-2xl sm:rounded-[1.5rem]"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleGuess(id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-zinc-900/60 shadow-md transition-all duration-200 sm:rounded-[1.5rem]
+                        ${isSelected && isCorrectSelection
+                          ? 'scale-[0.99] border-green-500/70 bg-zinc-900/70 ring-2 ring-green-500/20'
+                          : isSelected
+                            ? 'scale-[0.99] border-red-500/70 bg-zinc-900/70 ring-2 ring-red-500/20'
+                            : 'border-zinc-800 hover:bg-zinc-800 active:scale-[0.97]'
+                        }
+                        ${selectedChoiceId && !isSelected ? 'opacity-75' : 'opacity-100'}`}
                     >
                       <CardContent className="p-3 sm:p-5 flex flex-col items-center justify-center gap-2 sm:gap-3">
                         <div ref={(el) => { if (el) choiceRefs.current[id] = el; else delete choiceRefs.current[id]; }} className="w-28 h-28 sm:w-32 sm:h-32 rounded-full relative">
-                          <Avatar className="w-full h-full border-2 border-zinc-800 bg-zinc-950 overflow-hidden isolate relative translate-z-0">
+                          <Avatar className={`w-full h-full border-2 bg-zinc-950 overflow-hidden isolate relative translate-z-0 transition-all duration-200 ${
+                            isSelected ? 'border-zinc-700' : 'border-zinc-800'
+                          }`}>
                             <AvatarImage 
                               src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} 
                               className="object-cover scale-[1.5] translate-y-6"
@@ -561,10 +591,13 @@ export default function Game() {
                             <AvatarFallback className="bg-zinc-800 text-xs">NBA</AvatarFallback>
                           </Avatar>
                         </div>
-                        <span className="font-bold text-sm sm:text-lg text-zinc-300 text-center leading-tight transition-colors">{gameData.players[id]}</span>
+                        <span className={`font-bold text-sm sm:text-lg text-center leading-tight transition-colors ${
+                          isSelected ? 'text-white' : 'text-zinc-300'
+                        }`}>{gameData.players[id]}</span>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
