@@ -128,3 +128,54 @@
     @apply font-mono;
   }
 }
+
+@layer components {
+  @media (max-height: 700px) {
+    .leaderboard-content {
+      padding: 0.75rem;
+    }
+
+    .leaderboard-topbar {
+      margin-bottom: 0.5rem;
+    }
+
+    .leaderboard-title {
+      font-size: 1.25rem;
+    }
+
+    .leaderboard-best {
+      margin-top: 0.25rem;
+      font-size: 10px;
+    }
+
+    .leaderboard-back {
+      height: 2rem;
+      padding-inline: 0.75rem;
+      font-size: 10px;
+    }
+
+    .leaderboard-panel-inner {
+      padding: 0.5rem;
+    }
+
+    .leaderboard-table-header,
+    .leaderboard-table-row {
+      grid-template-columns: 2.5rem minmax(0, 1fr) 3.75rem;
+      gap: 0.5rem;
+    }
+
+    .leaderboard-table-header {
+      padding-bottom: 0.25rem;
+      font-size: 9px;
+    }
+
+    .leaderboard-rank,
+    .leaderboard-name {
+      font-size: 0.75rem;
+    }
+
+    .leaderboard-score {
+      font-size: 1rem;
+    }
+  }
+}

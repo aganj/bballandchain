@@ -1,15 +1,52 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check } from "lucide-react";
+import { Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check, Medal } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
   network: Record<string, Record<string, { teams: string[]; years: string[] }>>;
 };
+
+type LeaderboardEntry = {
+  id: string;
+  name: string;
+  score: number;
+  created_at: string;
+};
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const createSupabaseClient = () => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+};
+
+const supabase = (() => {
+  const globalKey = "__bballandchainSupabase";
+  const globalScope = globalThis as typeof globalThis & {
+    [globalKey]?: ReturnType<typeof createSupabaseClient>;
+  };
+
+  if (!globalScope[globalKey]) {
+    globalScope[globalKey] = createSupabaseClient();
+  }
+
+  return globalScope[globalKey];
+})();
+
+const LOCAL_HIGH_SCORE_KEY = "bballandchain.highScore";
 
 const TEAM_LOGOS: Record<string, string> = {
   "ATL": "1610612737", "BOS": "1610612738", "CLE": "1610612739", "NOP": "1610612740",
@@ -125,7 +162,8 @@ const formatYearsList = (yearsList: string[]) => {
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard'>('start');
+  const [previousScreen, setPreviousScreen] = useState<'start' | 'gameover' | 'victory'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
@@ -134,6 +172,15 @@ export default function Game() {
   const [choices, setChoices] = useState<string[]>([]);
   const [chainLength, setChainLength] = useState(1);
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
+  const [localHighScore, setLocalHighScore] = useState(0);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [leaderboardSubmitError, setLeaderboardSubmitError] = useState<string | null>(null);
+  const [pendingLeaderboardScore, setPendingLeaderboardScore] = useState<number | null>(null);
+  const [leaderboardName, setLeaderboardName] = useState("");
+  const [submittingScore, setSubmittingScore] = useState(false);
+  const [scoreSubmitted, setScoreSubmitted] = useState(false);
   
   // Animation states
   const mainAvatarRef = useRef<HTMLDivElement>(null);
@@ -148,6 +195,116 @@ export default function Game() {
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const loadLeaderboard = async () => {
+    if (!supabase) {
+      setLeaderboardError("Add Supabase env vars to enable the leaderboard.");
+      return;
+    }
+
+    setLeaderboardLoading(true);
+    setLeaderboardError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("leaderboard")
+        .select("id,name,score,created_at")
+        .order("score", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(10);
+
+      if (error) {
+        setLeaderboardError(error.message);
+      } else {
+        setLeaderboard(data ?? []);
+      }
+    } catch (error) {
+      setLeaderboardError(error instanceof Error ? error.message : "Unable to load leaderboard.");
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  const scoreMakesLeaderboard = (score: number, entries = leaderboard) => {
+    if (!supabase || score <= 0) return false;
+    return entries.length < 10 || score > entries[entries.length - 1].score;
+  };
+
+  const updateLocalHighScore = (score: number) => {
+    setLocalHighScore(prev => {
+      const next = Math.max(prev, score);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(LOCAL_HIGH_SCORE_KEY, String(next));
+      }
+      return next;
+    });
+  };
+
+  const finishGame = (result: 'gameover' | 'victory', finalScore: number) => {
+    setGameState(result);
+    targetTimeRef.current = null;
+    clearInterval(timerRef.current as NodeJS.Timeout);
+    updateLocalHighScore(finalScore);
+    setScoreSubmitted(false);
+    setPendingLeaderboardScore(scoreMakesLeaderboard(finalScore) ? finalScore : null);
+  };
+
+  const openLeaderboard = () => {
+    if (gameState === 'gameover' || gameState === 'victory') {
+      setPreviousScreen(gameState);
+    } else {
+      setPreviousScreen('start');
+    }
+    setGameState('leaderboard');
+    loadLeaderboard();
+  };
+
+  const submitLeaderboardScore = async () => {
+    if (!supabase || pendingLeaderboardScore === null || submittingScore) return;
+
+    const cleanName = leaderboardName.trim().replace(/\s+/g, " ").slice(0, 18);
+    if (!cleanName) return;
+
+    setSubmittingScore(true);
+    setLeaderboardSubmitError(null);
+
+    const { error } = await supabase
+      .from("leaderboard")
+      .insert({ name: cleanName, score: pendingLeaderboardScore });
+
+    if (error) {
+      setLeaderboardSubmitError(error.message);
+    } else {
+      const { data: rankedEntries, error: pruneReadError } = await supabase
+        .from("leaderboard")
+        .select("id")
+        .order("score", { ascending: false })
+        .order("created_at", { ascending: true });
+
+      if (pruneReadError) {
+        console.warn("Leaderboard cleanup read failed:", pruneReadError.message);
+      } else {
+        const entriesToDelete = (rankedEntries ?? []).slice(10).map(entry => entry.id);
+        if (entriesToDelete.length > 0) {
+          const { error: pruneDeleteError } = await supabase
+            .from("leaderboard")
+            .delete()
+            .in("id", entriesToDelete);
+
+          if (pruneDeleteError) {
+            console.warn("Leaderboard cleanup delete failed:", pruneDeleteError.message);
+          }
+        }
+      }
+
+      setPendingLeaderboardScore(null);
+      setLeaderboardName("");
+      setScoreSubmitted(true);
+      await loadLeaderboard();
+    }
+
+    setSubmittingScore(false);
+  };
+
   useEffect(() => {
     fetch(`/active_nba_game_data.json?t=${new Date().getTime()}`)
       .then(res => {
@@ -159,6 +316,14 @@ export default function Game() {
         console.error("Failed to load data", err);
         setFetchError(err.message);
       });
+  }, []);
+
+  useEffect(() => {
+    const savedHighScore = window.localStorage.getItem(LOCAL_HIGH_SCORE_KEY);
+    if (savedHighScore) {
+      setLocalHighScore(Number(savedHighScore) || 0);
+    }
+    loadLeaderboard();
   }, []);
 
   useEffect(() => {
@@ -267,9 +432,7 @@ export default function Game() {
     }
 
     if (validTeammates.length === 0) {
-      setGameState('victory');
-      targetTimeRef.current = null;
-      clearInterval(timerRef.current as NodeJS.Timeout);
+      finishGame('victory', currentChainLength);
       return;
     }
 
@@ -358,9 +521,7 @@ export default function Game() {
   };
 
   const handleGameOver = () => {
-    setGameState('gameover');
-    targetTimeRef.current = null;
-    clearInterval(timerRef.current as NodeJS.Timeout);
+    finishGame('gameover', chainLength);
   };
 
   const handleShare = async () => {
@@ -386,6 +547,41 @@ export default function Game() {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.src = "https://cdn.nba.com/headshots/nba/latest/260x190/fallback.png";
   };
+
+  const leaderboardPrompt = pendingLeaderboardScore !== null && !scoreSubmitted && (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-in fade-in duration-200">
+    <form
+      className="w-full max-w-sm rounded-3xl border border-blue-500/25 bg-zinc-900/95 p-5 text-center shadow-2xl shadow-blue-950/40 ring-1 ring-white/5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submitLeaderboardScore();
+      }}
+    >
+      <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-100">
+        Join the leaderboard
+      </h2>
+      <p className="mx-auto mt-3 max-w-xs text-base font-medium leading-relaxed text-zinc-300">
+        Your chain of <span className="font-black text-blue-300">{pendingLeaderboardScore}</span> made the board. Enter your name to save it.
+      </p>
+      <div className="mt-5 flex gap-2">
+        <input
+          value={leaderboardName}
+          onChange={(event) => setLeaderboardName(event.target.value)}
+          maxLength={18}
+          placeholder="Enter name"
+          autoFocus
+          className="h-12 min-w-0 flex-1 rounded-2xl border border-zinc-700 bg-zinc-950 px-4 text-[16px] font-bold text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-blue-500"
+        />
+        <Button type="submit" disabled={!leaderboardName.trim() || submittingScore} className="h-12 rounded-2xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-500">
+          {submittingScore ? <Loader2 className="size-4 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+      {leaderboardSubmitError && (
+        <p className="mt-3 text-xs font-bold leading-relaxed text-red-300">{leaderboardSubmitError}</p>
+      )}
+    </form>
+    </div>
+  );
 
   if (fetchError) return (
     <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-6 text-center overflow-hidden touch-none">
@@ -434,6 +630,14 @@ export default function Game() {
 
         <div className="flex-1" />
 
+        <div 
+          onClick={openLeaderboard}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 transition-opacity duration-700 ease-in-out flex items-center justify-center bg-[#0a0a0a] border border-zinc-800 rounded-full shadow-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 group z-50
+          ${gameState === 'start' || gameState === 'gameover' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        >
+          <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent px-4 py-1.5 whitespace-nowrap">Leaderboard</span>
+        </div>
+
         <div className={`flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-opacity duration-300
           ${gameState === 'playing' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Active Chain</span>
@@ -445,7 +649,7 @@ export default function Game() {
 
         {/* Start Screen */}
         {gameState === 'start' && (
-          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-2 sm:pb-4">
             <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
               
@@ -499,6 +703,86 @@ export default function Game() {
                     <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2 mt-4 font-bold">
                       Any questions? Feel free to contact me on Instagram: @bballandchain
                     </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Leaderboard Screen */}
+        {gameState === 'leaderboard' && (
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+            <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+              <Card 
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/80 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-3xl flex flex-col isolate"
+                style={{ transform: 'translateZ(0)' }}
+              >
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-10 blur-sm pointer-events-none !rounded-3xl"></div>
+                <div className="leaderboard-content relative z-10 flex h-full flex-col p-4 sm:p-6">
+                  <div className="leaderboard-topbar flex items-start justify-between gap-3 mb-3 shrink-0">
+                    <div>
+                      <CardTitle className="leaderboard-title text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight leading-none">
+                        Leaderboard
+                      </CardTitle>
+                      <p className="leaderboard-best mt-2 text-xs sm:text-sm font-black uppercase tracking-widest text-zinc-500">
+                        Your best: <span className="text-base sm:text-lg text-blue-400">{localHighScore}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" className="leaderboard-back border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-10 px-4 text-xs sm:text-sm font-bold rounded-2xl" onClick={() => setGameState(previousScreen)}>
+                      Back
+                    </Button>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/60">
+                    <div className="leaderboard-panel-inner flex h-full flex-col p-3 sm:p-4">
+                      {leaderboardLoading && (
+                        <div className="flex h-full flex-col items-center justify-center text-zinc-500">
+                          <Loader2 className="mb-3 size-7 animate-spin text-blue-500" />
+                          <p className="text-xs font-bold uppercase tracking-widest">Loading scores</p>
+                        </div>
+                      )}
+
+                      {!leaderboardLoading && leaderboardError && (
+                        <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                          <AlertTriangle className="mb-3 size-8 text-amber-500" />
+                          <p className="text-sm font-bold text-zinc-300">Leaderboard unavailable</p>
+                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">{leaderboardError}</p>
+                        </div>
+                      )}
+
+                      {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
+                        <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                          <Medal className="mb-3 size-8 text-blue-400" />
+                          <p className="text-sm font-bold text-zinc-300">No scores yet</p>
+                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">Be the first chain on the board.</p>
+                        </div>
+                      )}
+
+                      {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
+                        <div className="flex h-full min-h-0 flex-col">
+                          <div className="leaderboard-table-header grid shrink-0 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/80 px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                            <span>Rank</span>
+                            <span>Name</span>
+                            <span className="text-right">Score</span>
+                          </div>
+                          {leaderboard.map((entry, idx) => (
+                            <div key={entry.id} className="leaderboard-table-row grid min-h-0 flex-1 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/50 px-2 last:border-b-0">
+                              <div className="leaderboard-rank text-sm sm:text-base font-black leading-none text-zinc-500 tabular-nums">
+                                #{idx + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-none text-zinc-100">{entry.name}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="leaderboard-score text-lg sm:text-xl font-black leading-none text-blue-400 tabular-nums">{entry.score}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -720,7 +1004,7 @@ export default function Game() {
               </CardHeader>
               
               <CardContent className="text-center pb-2 pt-1 px-4">
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
+                <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
                 <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">{chainLength}</div>
               </CardContent>
               
@@ -903,6 +1187,8 @@ export default function Game() {
         )}
 
       </div>
+
+      {leaderboardPrompt}
 
       {/* Sliding Clone Overlay layer - smooth cubic bezier timing */}
       {animatingId && animatingRects && (
