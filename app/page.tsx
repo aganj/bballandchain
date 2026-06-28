@@ -1019,7 +1019,7 @@ export default function Game() {
                         You've already played today's daily challenge. Wait until tomorrow for a new one.
                       </p>
                     </div>
-                    <div className="h-16 sm:h-20 w-full shrink-0" />
+                    <div className="h-4 sm:h-8 w-full shrink-0" />
                   </div>
                 </div>
               </Card>
