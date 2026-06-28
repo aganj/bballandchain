@@ -930,7 +930,7 @@ export default function Game() {
           onClick={goHome}
           className={`absolute flex items-center justify-center rounded-full cursor-pointer transition-all duration-700 ease-in-out z-50 group origin-center
             ${gameState === 'start'
-              ? 'top-[29dvh] sm:top-[33dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
+              ? 'top-[26dvh] sm:top-[23dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
               : 'top-1/2 left-0 -translate-y-1/2 translate-x-0 scale-100 bg-[#0a0a0a] border border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 active:scale-95'
             }
           `}
@@ -984,7 +984,7 @@ export default function Game() {
                 
                 <div className="relative z-10 flex flex-col items-center flex-1 p-6 sm:p-10 text-center h-full">
                   <div className="flex h-full w-full max-w-sm flex-col items-center mx-auto">
-                    <div className="h-[22dvh] sm:h-[26dvh] w-full shrink-0" />
+                    <div className="h-[19dvh] sm:h-[18dvh] w-full shrink-0" />
                     <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2">
                       Connect NBA teammates. One wrong link or an expired shot clock ends your chain. 
                     </p>
