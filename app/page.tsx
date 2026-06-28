@@ -405,6 +405,7 @@ export default function Game() {
   const [timeLeft, setTimeLeft] = useState(SHOT_CLOCK_TARGET_DECIS);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const targetTimeRef = useRef<number | null>(null);
+  const isAdvancingRef = useRef(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dailyCompletedToday = completedDailyDate === todayDailyKey;
@@ -456,6 +457,7 @@ export default function Game() {
   const finishGame = (result: 'gameover' | 'victory', finalScore: number) => {
     setGameState(result);
     targetTimeRef.current = null;
+    isAdvancingRef.current = false;
     clearInterval(timerRef.current as NodeJS.Timeout);
     if (gameMode === 'daily') {
       const dateKey = dailyChallenge?.dateKey ?? getDailyDateKey();
@@ -600,7 +602,7 @@ export default function Game() {
         
         setTimeLeft(Math.min(remainingDeciseconds, SHOT_CLOCK_TARGET_DECIS));
 
-        if (remainingDeciseconds <= 0) {
+        if (remainingDeciseconds <= 0 && !isAdvancingRef.current) {
           handleGameOver();
         }
       }, 50);
@@ -653,6 +655,7 @@ export default function Game() {
     setGameState('start');
     setGameMode('normal');
     targetTimeRef.current = null;
+    isAdvancingRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
@@ -664,6 +667,7 @@ export default function Game() {
     setAnimatingId(null);
     setAnimatingRects(null);
     setAnimatingMove(false);
+    isAdvancingRef.current = false;
   };
 
   const startGame = () => {
@@ -770,9 +774,7 @@ export default function Game() {
     setSelectedChoiceId(id);
 
     if (id === correctTeammateId) {
-      // Pad the timer so we don't accidentally game over during the animation 
-      // visually keeping it ticking seamlessly. It resets in generateRound upon landing.
-      if (targetTimeRef.current) targetTimeRef.current += 1000;
+      isAdvancingRef.current = true;
 
       const startNode = choiceRefs.current[id];
       const endNode = mainAvatarRef.current;
@@ -801,6 +803,7 @@ export default function Game() {
               setVisitedPlayers(newVisited);
               setWrongGuessId(null);
               generateRound(id, newVisited, newChainLength);
+              isAdvancingRef.current = false;
               
               // Let the DOM settle & browser paint for 50ms while the clone covers the jolt, 
               // then unmount the clone silently.
@@ -821,6 +824,7 @@ export default function Game() {
         setVisitedPlayers(newVisited);
         setWrongGuessId(null);
         generateRound(id, newVisited, newChainLength);
+        isAdvancingRef.current = false;
       }
     } else {
       setWrongGuessId(id);
@@ -915,9 +919,9 @@ export default function Game() {
   );
 
   return (
-    <div className="fixed inset-0 h-[100dvh] w-full overflow-hidden overscroll-none touch-none bg-zinc-950 text-zinc-100 flex flex-col items-center p-3 sm:p-6 font-sans selection:bg-blue-500/30">
+    <div className="fixed inset-0 h-[100dvh] w-full overflow-hidden overscroll-none touch-none bg-zinc-950 text-zinc-100 flex flex-col items-center px-3 pt-2 pb-3 sm:px-6 sm:pt-4 sm:pb-6 font-sans selection:bg-blue-500/30">
       
-      <header className="w-full max-w-xl h-10 sm:h-12 flex justify-between items-center mb-4 flex-shrink-0 z-50 relative">
+      <header className="w-full max-w-xl h-10 sm:h-12 flex justify-between items-center mb-2 sm:mb-3 flex-shrink-0 z-50 relative">
         <div 
           onClick={() => setGameState('about')}
           className={`absolute left-0 top-1/2 -translate-y-1/2 transition-opacity duration-700 ease-in-out flex items-center justify-center bg-[#0a0a0a] border border-zinc-800 rounded-full shadow-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 group z-50
@@ -992,7 +996,7 @@ export default function Game() {
                     <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                       Start New Chain
                     </Button>
-                    <p className="mt-3 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
+                    <p className="mt-3 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
                       or try the
                     </p>
                     <Button
@@ -1394,11 +1398,13 @@ export default function Game() {
                 <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">
                   {gameMode === 'daily' ? 'Daily Challenge' : 'Final Chain Length'}
                 </div>
-                <div className="score-number text-5xl sm:text-6xl md:text-7xl text-blue-500 leading-none -mb-1">
+                <div className={`score-number text-blue-500 leading-none -mb-1 ${
+                  gameMode === 'daily' ? 'text-4xl sm:text-5xl md:text-6xl' : 'text-5xl sm:text-6xl md:text-7xl'
+                }`}>
                   {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
                 </div>
                 {gameMode === 'daily' && (
-                  <p className="mt-1 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
+                  <p className="mt-2 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
                     {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
                   </p>
                 )}
