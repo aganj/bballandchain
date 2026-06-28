@@ -978,6 +978,9 @@ export default function Game() {
               >
                 
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
+                <p className="pointer-events-none absolute bottom-3 right-4 z-20 text-right text-[10px] sm:bottom-4 sm:right-6 sm:text-xs font-bold tracking-wide text-zinc-600">
+                  © 2026 BBall and Chain
+                </p>
                 
                 <div className="relative z-10 flex flex-col items-center flex-1 p-6 sm:p-10 text-center h-full">
                   <div className="flex h-full w-full max-w-sm flex-col items-center mx-auto">
@@ -989,7 +992,7 @@ export default function Game() {
                     <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                       Start New Chain
                     </Button>
-                    <p className="mt-3 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
+                    <p className="mt-3 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
                       or try the
                     </p>
                     <Button
@@ -1034,7 +1037,6 @@ export default function Game() {
                 style={{ transform: 'translateZ(0)' }}
               >
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
-                
                 <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-5 sm:p-8 text-center h-full min-h-0">
                   <div className="flex w-full flex-1 flex-col items-center justify-center px-1">
                     <CardTitle className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-3 sm:mb-6">
