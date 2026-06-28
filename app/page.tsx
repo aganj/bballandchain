@@ -19,6 +19,14 @@ type LeaderboardEntry = {
   created_at: string;
 };
 
+type GameMode = 'normal' | 'daily';
+
+type DailyChallenge = {
+  dateKey: string;
+  playerIds: string[];
+  rounds: { correctId: string; choices: string[] }[];
+};
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const createSupabaseClient = () => {
@@ -47,6 +55,79 @@ const supabase = (() => {
 })();
 
 const LOCAL_HIGH_SCORE_KEY = "bballandchain.highScore";
+const DAILY_COMPLETED_DATE_KEY = "bballandchain.dailyCompletedDate";
+const SHOT_CLOCK_DECIS = 100;
+const DAILY_CHAIN_LENGTH = 24;
+const SEVEN_SEGMENT_DIGITS: Record<string, string[]> = {
+  "0": ["a", "b", "c", "d", "e", "f"],
+  "1": ["b", "c"],
+  "2": ["a", "b", "g", "e", "d"],
+  "3": ["a", "b", "c", "d", "g"],
+  "4": ["f", "g", "b", "c"],
+  "5": ["a", "f", "g", "c", "d"],
+  "6": ["a", "f", "e", "d", "c", "g"],
+  "7": ["a", "b", "c"],
+  "8": ["a", "b", "c", "d", "e", "f", "g"],
+  "9": ["a", "b", "c", "d", "f", "g"],
+};
+const SEVEN_SEGMENT_NAMES = ["a", "b", "c", "d", "e", "f", "g"];
+const SEVEN_SEGMENT_LINES: Record<string, { x1: number; y1: number; x2: number; y2: number }> = {
+  a: { x1: 14, y1: 6, x2: 46, y2: 6 },
+  b: { x1: 52, y1: 14, x2: 52, y2: 44 },
+  c: { x1: 52, y1: 56, x2: 52, y2: 86 },
+  d: { x1: 14, y1: 94, x2: 46, y2: 94 },
+  e: { x1: 8, y1: 56, x2: 8, y2: 86 },
+  f: { x1: 8, y1: 14, x2: 8, y2: 44 },
+  g: { x1: 14, y1: 50, x2: 46, y2: 50 },
+};
+
+function SevenSegmentDigit({ digit, small = false }: { digit: string; small?: boolean }) {
+  const activeSegments = new Set(SEVEN_SEGMENT_DIGITS[digit] ?? []);
+
+  return (
+    <svg className={small ? "seven-digit seven-digit-small" : "seven-digit"} viewBox="0 0 60 100" aria-hidden="true" focusable="false">
+      {SEVEN_SEGMENT_NAMES.map(segment => {
+        const isActive = activeSegments.has(segment);
+        const line = SEVEN_SEGMENT_LINES[segment];
+
+        return (
+          <line
+            key={segment}
+            className="seven-segment"
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
+            stroke={isActive ? "#ff2a12" : "#2b0604"}
+            strokeWidth={8}
+            strokeLinecap="square"
+            opacity={isActive ? 1 : 0.42}
+            style={isActive ? { filter: "drop-shadow(0 0 2px rgba(255,42,18,1)) drop-shadow(0 0 8px rgba(255,20,0,0.85))" } : undefined}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function ShotClockDigits({ deciseconds }: { deciseconds: number }) {
+  const clampedDeciseconds = Math.max(0, Math.min(SHOT_CLOCK_DECIS, deciseconds));
+  const showTenths = clampedDeciseconds > 0 && clampedDeciseconds < 50;
+  const displayValue = showTenths
+    ? `${Math.floor(clampedDeciseconds / 10)}.${clampedDeciseconds % 10}`
+    : String(Math.ceil(clampedDeciseconds / 10));
+  const displayParts = showTenths ? displayValue.split("") : displayValue.padStart(2, " ").split("");
+
+  return (
+    <span className="seven-clock" aria-label={`${displayValue} seconds`}>
+      {displayParts.map((part, index) => (
+        part === "."
+          ? <span key={`dot-${index}`} className="seven-decimal" aria-hidden="true" />
+          : <SevenSegmentDigit key={`${part}-${index}`} digit={part} small={showTenths && index > displayValue.indexOf(".")} />
+      ))}
+    </span>
+  );
+}
 
 const TEAM_LOGOS: Record<string, string> = {
   "ATL": "1610612737", "BOS": "1610612738", "CLE": "1610612739", "NOP": "1610612740",
@@ -159,11 +240,137 @@ const formatYearsList = (yearsList: string[]) => {
   return formattedList.filter(y => y !== "").join(', ');
 };
 
+const getDailyDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDailyDateKey = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return { year, month, day };
+};
+
+const getDateIndex = (dateKey: string) => {
+  const { year, month, day } = parseDailyDateKey(dateKey);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+};
+
+const getOrdinalSuffix = (day: number) => {
+  if (day >= 11 && day <= 13) return "th";
+  const lastDigit = day % 10;
+  if (lastDigit === 1) return "st";
+  if (lastDigit === 2) return "nd";
+  if (lastDigit === 3) return "rd";
+  return "th";
+};
+
+const formatDailyDate = (dateKey: string) => {
+  const { year, month, day } = parseDailyDateKey(dateKey);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const monthName = date.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  return `${monthName} ${day}${getOrdinalSuffix(day)}`;
+};
+
+const hashStringToSeed = (value: string) => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const createSeededRandom = (seed: number) => {
+  let state = seed || 1;
+  return () => {
+    state |= 0;
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const pickSeeded = <T,>(items: T[], random: () => number) => {
+  return items[Math.floor(random() * items.length)];
+};
+
+const shuffleSeeded = <T,>(items: T[], random: () => number) => {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+const getValidNextPlayers = (gameData: GameData, currentVisited: string[]) => {
+  const playerId = currentVisited[currentVisited.length - 1];
+  const teammates = Object.keys(gameData.network[playerId] || {});
+  let validTeammates = teammates.filter(id => !currentVisited.includes(id));
+
+  if (currentVisited.length > 1) {
+    const previousId = currentVisited[currentVisited.length - 2];
+    const previousTeammates = Object.keys(gameData.network[previousId] || {});
+    const jumpingTeammates = validTeammates.filter(id => !previousTeammates.includes(id));
+    if (jumpingTeammates.length > 0) validTeammates = jumpingTeammates;
+  }
+
+  return validTeammates;
+};
+
+const buildDailyChallenge = (gameData: GameData, dateKey = getDailyDateKey()): DailyChallenge => {
+  const allPlayerIds = Object.keys(gameData.players).sort();
+  const playableIds = Object.keys(gameData.network)
+    .filter(id => Object.keys(gameData.network[id] || {}).length > 0)
+    .sort();
+  const dateIndex = getDateIndex(dateKey);
+
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const random = createSeededRandom(hashStringToSeed(`bballandchain-daily-${dateKey}-${attempt}`));
+    const startId = playableIds[(dateIndex * 37 + attempt) % playableIds.length];
+    const playerIds = [startId];
+    const rounds: DailyChallenge["rounds"] = [];
+
+    while (playerIds.length < DAILY_CHAIN_LENGTH) {
+      const currentId = playerIds[playerIds.length - 1];
+      const validTeammates = getValidNextPlayers(gameData, playerIds);
+      if (validTeammates.length === 0) break;
+
+      const correctId = pickSeeded(validTeammates, random);
+      const teammates = new Set(Object.keys(gameData.network[currentId] || {}));
+      const decoys = allPlayerIds.filter(id => id !== currentId && id !== correctId && !teammates.has(id));
+      if (decoys.length === 0) break;
+
+      const decoyId = pickSeeded(decoys, random);
+      rounds.push({
+        correctId,
+        choices: shuffleSeeded([correctId, decoyId], random),
+      });
+      playerIds.push(correctId);
+    }
+
+    if (playerIds.length === DAILY_CHAIN_LENGTH && rounds.length === DAILY_CHAIN_LENGTH - 1) {
+      return { dateKey, playerIds, rounds };
+    }
+  }
+
+  throw new Error("Unable to generate today's daily challenge.");
+};
+
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard'>('start');
   const [previousScreen, setPreviousScreen] = useState<'start' | 'gameover' | 'victory'>('start');
+  const [gameMode, setGameMode] = useState<GameMode>('normal');
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
+  const [completedDailyDate, setCompletedDailyDate] = useState<string | null>(null);
+  const [todayDailyKey, setTodayDailyKey] = useState(getDailyDateKey);
+  const [showDailyCompletedMessage, setShowDailyCompletedMessage] = useState(false);
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
@@ -189,11 +396,12 @@ export default function Game() {
   const [animatingRects, setAnimatingRects] = useState<{ start: DOMRect; end: DOMRect } | null>(null);
   const [animatingMove, setAnimatingMove] = useState(false);
 
-  const [timeLeft, setTimeLeft] = useState(100);
+  const [timeLeft, setTimeLeft] = useState(SHOT_CLOCK_DECIS);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const targetTimeRef = useRef<number | null>(null);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dailyCompletedToday = completedDailyDate === todayDailyKey;
 
   const loadLeaderboard = async () => {
     if (!supabase) {
@@ -243,6 +451,13 @@ export default function Game() {
     setGameState(result);
     targetTimeRef.current = null;
     clearInterval(timerRef.current as NodeJS.Timeout);
+    if (gameMode === 'daily') {
+      const dateKey = dailyChallenge?.dateKey ?? getDailyDateKey();
+      setCompletedDailyDate(dateKey);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(DAILY_COMPLETED_DATE_KEY, dateKey);
+      }
+    }
     updateLocalHighScore(finalScore);
     setScoreSubmitted(false);
     setPendingLeaderboardScore(scoreMakesLeaderboard(finalScore) ? finalScore : null);
@@ -266,6 +481,29 @@ export default function Game() {
 
     setSubmittingScore(true);
     setLeaderboardSubmitError(null);
+
+    try {
+      const moderationResponse = await fetch("/api/moderate-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cleanName }),
+      });
+      const moderationResult = await moderationResponse.json();
+
+      if (!moderationResponse.ok || !moderationResult.allowed) {
+        setLeaderboardSubmitError(
+          typeof moderationResult.message === "string"
+            ? moderationResult.message
+            : "That name isn't allowed. Try something else."
+        );
+        setSubmittingScore(false);
+        return;
+      }
+    } catch {
+      setLeaderboardSubmitError("Unable to check that name. Try again.");
+      setSubmittingScore(false);
+      return;
+    }
 
     const { error } = await supabase
       .from("leaderboard")
@@ -323,8 +561,26 @@ export default function Game() {
     if (savedHighScore) {
       setLocalHighScore(Number(savedHighScore) || 0);
     }
+    setCompletedDailyDate(window.localStorage.getItem(DAILY_COMPLETED_DATE_KEY));
     loadLeaderboard();
   }, []);
+
+  useEffect(() => {
+    const syncLocalDailyKey = () => {
+      const nextDailyKey = getDailyDateKey();
+      setTodayDailyKey(current => current === nextDailyKey ? current : nextDailyKey);
+    };
+
+    syncLocalDailyKey();
+    const intervalId = window.setInterval(syncLocalDailyKey, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (!dailyCompletedToday) {
+      setShowDailyCompletedMessage(false);
+    }
+  }, [dailyCompletedToday]);
 
   useEffect(() => {
     // The shot clock keeps ticking even if an animation is happening
@@ -336,7 +592,7 @@ export default function Game() {
         const remainingMs = Math.max(0, targetTimeRef.current - now);
         const remainingDeciseconds = Math.ceil(remainingMs / 100);
         
-        setTimeLeft(remainingDeciseconds);
+        setTimeLeft(Math.min(remainingDeciseconds, SHOT_CLOCK_DECIS));
 
         if (remainingDeciseconds <= 0) {
           handleGameOver();
@@ -389,12 +645,12 @@ export default function Game() {
 
   const goHome = () => {
     setGameState('start');
+    setGameMode('normal');
     targetTimeRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
-  const startGame = () => {
-    if (!gameData) return;
+  const resetRoundState = () => {
     setChainLength(1);
     setVisitedPlayers([]);
     setWrongGuessId(null);
@@ -402,6 +658,14 @@ export default function Game() {
     setAnimatingId(null);
     setAnimatingRects(null);
     setAnimatingMove(false);
+  };
+
+  const startGame = () => {
+    if (!gameData) return;
+    setShowDailyCompletedMessage(false);
+    setGameMode('normal');
+    setDailyChallenge(null);
+    resetRoundState();
     
     const playerIds = Object.keys(gameData.network);
     
@@ -417,19 +681,57 @@ export default function Game() {
     setGameState('playing');
   };
 
+  const startDailyChallenge = () => {
+    if (!gameData) return;
+    if (dailyCompletedToday) {
+      setShowDailyCompletedMessage(true);
+      return;
+    }
+    setShowDailyCompletedMessage(false);
+
+    let challenge: DailyChallenge;
+    try {
+      challenge = buildDailyChallenge(gameData, todayDailyKey);
+    } catch (error) {
+      setFetchError(error instanceof Error ? error.message : "Unable to generate today's daily challenge.");
+      return;
+    }
+    setGameMode('daily');
+    setDailyChallenge(challenge);
+    resetRoundState();
+
+    const startId = challenge.playerIds[0];
+    setCurrentId(startId);
+    setVisitedPlayers([startId]);
+    setCorrectTeammateId(challenge.rounds[0].correctId);
+    setChoices(challenge.rounds[0].choices);
+    targetTimeRef.current = Date.now() + 10000;
+    setTimeLeft(SHOT_CLOCK_DECIS);
+    setGameState('playing');
+  };
+
   const generateRound = (playerId: string, currentVisited: string[], currentChainLength: number) => {
     if (!gameData) return;
     setSelectedChoiceId(null);
+
+    if (gameMode === 'daily') {
+      if (!dailyChallenge) return;
+
+      if (currentChainLength >= DAILY_CHAIN_LENGTH) {
+        finishGame('victory', DAILY_CHAIN_LENGTH);
+        return;
+      }
+
+      const round = dailyChallenge.rounds[currentChainLength - 1];
+      setCorrectTeammateId(round.correctId);
+      setChoices(round.choices);
+      targetTimeRef.current = Date.now() + 10000;
+      setTimeLeft(SHOT_CLOCK_DECIS);
+      return;
+    }
     
     const teammates = Object.keys(gameData.network[playerId]);
-    let validTeammates = teammates.filter(id => !currentVisited.includes(id));
-
-    if (currentVisited.length > 1) {
-      const previousId = currentVisited[currentVisited.length - 2];
-      const previousTeammates = Object.keys(gameData.network[previousId]);
-      const jumpingTeammates = validTeammates.filter(id => !previousTeammates.includes(id));
-      if (jumpingTeammates.length > 0) validTeammates = jumpingTeammates;
-    }
+    const validTeammates = getValidNextPlayers(gameData, currentVisited);
 
     if (validTeammates.length === 0) {
       finishGame('victory', currentChainLength);
@@ -453,7 +755,7 @@ export default function Game() {
     setChoices(roundChoices);
     
     targetTimeRef.current = Date.now() + 10000;
-    setTimeLeft(100);
+    setTimeLeft(SHOT_CLOCK_DECIS);
   };
 
   const handleGuess = (id: string) => {
@@ -526,13 +828,15 @@ export default function Game() {
 
   const handleShare = async () => {
     const playerText = chainLength === 1 ? 'player' : 'players';
-    const message = gameState === 'victory' 
-      ? `🏆 BBall and Chain: I completely cleared the network with a max chain of ${chainLength}!\n\nbballandchain.com`
-      : `🔗 BBall and Chain: I linked ${chainLength} NBA ${playerText} before the chain broke! Can you beat that?\n\nbballandchain.com`;
+    const message = gameMode === 'daily'
+      ? `I linked ${chainLength} out of ${DAILY_CHAIN_LENGTH} ${playerText} for the daily challenge on bballandchain.com`
+      : gameState === 'victory' 
+        ? `I cleared the chain with ${chainLength} NBA ${playerText} on bballandchain.com`
+        : `I linked ${chainLength} NBA ${playerText} on bballandchain.com`;
     
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'BBall and Chain', text: message });
+        await navigator.share({ text: message });
         return;
       } catch (err) { console.log("Share cancelled.", err); }
     }
@@ -626,6 +930,11 @@ export default function Game() {
           `}
         >
           <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent px-4 py-1.5 whitespace-nowrap">BBall and Chain</span>
+          <span className={`absolute top-full mt-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-opacity duration-300 whitespace-nowrap ${
+            gameState === 'playing' && gameMode === 'daily' ? 'opacity-100' : 'opacity-0'
+          }`}>
+            Daily Challenge
+          </span>
         </div>
 
         <div className="flex-1" />
@@ -640,8 +949,12 @@ export default function Game() {
 
         <div className={`flex items-center bg-[#0a0a0a] border border-zinc-800 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-opacity duration-300
           ${gameState === 'playing' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">Active Chain</span>
-          <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">{chainLength}</span>
+          <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">
+            Active Chain
+          </span>
+          <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">
+            {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+          </span>
         </div>
       </header>
 
@@ -662,15 +975,40 @@ export default function Game() {
                 
                 <div className="relative z-10 flex flex-col items-center flex-1 p-6 sm:p-10 text-center h-full">
                   <div className="flex h-full w-full max-w-sm flex-col items-center mx-auto">
-                    <div className="h-[20dvh] sm:h-[24dvh] w-full shrink-0" />
+                    <div className="h-[22dvh] sm:h-[26dvh] w-full shrink-0" />
                     <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2">
-                      Connect NBA players who have played together. One wrong link or an expired shot clock ends your chain.
+                      Connect NBA teammates. One wrong link or an expired shot clock ends your chain. 
                     </p>
-                    <div className="flex-1 min-h-10" />
+                    <div className="flex-1 min-h-12" />
                     <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                       Start New Chain
                     </Button>
-                    <div className="h-20 sm:h-24 w-full shrink-0" />
+                    <p className="mt-3 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
+                      or try the
+                    </p>
+                    <Button
+                      size="lg"
+                      aria-disabled={dailyCompletedToday}
+                      className={`mt-2 w-full border border-zinc-700 bg-zinc-950/70 hover:bg-zinc-800 text-zinc-100 h-14 sm:h-16 font-bold transition-all rounded-2xl ${
+                        dailyCompletedToday
+                          ? 'cursor-not-allowed bg-zinc-900 text-zinc-500 border-zinc-800 shadow-none opacity-60 blur-[0.4px] hover:bg-zinc-900 hover:scale-100 active:scale-100'
+                          : 'hover:scale-[1.02] active:scale-[0.98]'
+                      }`}
+                      onClick={startDailyChallenge}
+                    >
+                      <span className="flex flex-col items-center justify-center leading-tight">
+                        <span className="text-lg sm:text-xl">Daily Challenge</span>
+                        <span className="mt-0.5 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-400">
+                          {formatDailyDate(todayDailyKey)}
+                        </span>
+                      </span>
+                    </Button>
+                    {showDailyCompletedMessage && (
+                      <p className="mt-2 text-xs sm:text-sm font-bold leading-snug text-zinc-400">
+                        You've already played today's daily challenge. Wait until tomorrow for a new one.
+                      </p>
+                    )}
+                    <div className="h-16 sm:h-20 w-full shrink-0" />
                   </div>
                 </div>
               </Card>
@@ -689,18 +1027,41 @@ export default function Game() {
               >
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
                 
-                <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-6 sm:p-10 text-center h-full">
-                  <div className="flex flex-col items-center justify-center w-full flex-1">
-                    <CardTitle className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-6">
+                <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-5 sm:p-8 text-center h-full min-h-0">
+                  <div className="flex w-full flex-1 flex-col items-center justify-center px-1">
+                    <CardTitle className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-3 sm:mb-6">
                       About the game
                     </CardTitle>
-                    <p className="text-zinc-300 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2 mb-4">
-                      BBall and Chain is the ultimate test of your NBA teammate knowledge.
-                    </p>
-                    <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2">
-                      The game presents you with a player and two potential teammates. One extends your chain. The other ends it. Choose wisely.
-                    </p>
-                    <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mx-auto px-2 mt-4 font-bold">
+                    <div className="w-full max-w-sm sm:max-w-lg space-y-2 sm:space-y-4 text-left">
+                      <section>
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">How it works</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          You get one NBA player and two choices. Pick the player who was a teammate to extend the chain. A wrong pick or expired shot clock breaks it.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Start New Chain</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          A random active player starts the chain. Keep linking valid teammates for as long as you can.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Daily Challenge</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          Everyone gets the same 24-player chain each day in the same order. You get one attempt to complete it.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Teammate connections</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          Two players are considered to have been teammates if they actually logged minutes together. After a chain is broken, the chain history shows the shared teams between each teammate pair, as well as which seasons they played together.
+                        </p>
+                      </section>
+                    </div>
+                    <p className="text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 text-sm sm:text-base leading-snug max-w-sm sm:max-w-lg mx-auto px-2 mt-3 sm:mt-6 font-black">
                       Any questions? Feel free to contact me on Instagram: @bballandchain
                     </p>
                   </div>
@@ -796,15 +1157,12 @@ export default function Game() {
             <div className="flex flex-col items-center justify-center flex-1 w-full pb-6 sm:pb-12">
               
               <div className="flex flex-col items-center justify-center w-full flex-shrink-0 mb-6 sm:mb-8">
-                <div className="bg-[#0a0000] border-[4px] sm:border-[6px] border-zinc-900 rounded-2xl px-5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.9),inset_0_0_15px_rgba(0,0,0,1)] relative overflow-hidden flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
-                  <div className="absolute top-0 left-0 w-full h-[45%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-                  <div className="absolute inset-0 bg-red-500/5 pointer-events-none"></div>
-                  <div className="w-full text-center flex items-center justify-center mt-1">
-                    <span 
-                      className={`font-mono font-black text-4xl sm:text-5xl tabular-nums leading-none tracking-tighter text-[#ff1111] relative z-10 ${timeLeft < 30 ? 'animate-pulse' : ''}`}
-                      style={{ textShadow: '0 0 10px rgba(255,0,0,0.8), 0 0 20px rgba(255,0,0,0.4)' }}
-                    >
-                      {Math.ceil(timeLeft / 10)}
+                <div className="relative flex w-[76px] sm:w-[90px] flex-col items-center overflow-hidden rounded-md border border-zinc-700/70 bg-gradient-to-b from-zinc-800 to-black p-1 shadow-[0_10px_28px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <div className="relative flex h-[44px] sm:h-[54px] w-full items-center justify-center overflow-hidden rounded-sm bg-[#130303] px-0.5 pt-1.5 pb-0.5 shadow-[inset_0_0_18px_rgba(0,0,0,0.95),inset_0_0_2px_rgba(255,255,255,0.18)] ring-1 ring-red-950/80">
+                    <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:6px_6px]"></div>
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/6 to-transparent"></div>
+                    <span className={`relative z-10 ${timeLeft < 30 ? 'animate-pulse' : ''}`}>
+                      <ShotClockDigits deciseconds={Math.min(timeLeft, SHOT_CLOCK_DECIS)} />
                     </span>
                   </div>
                 </div>
@@ -898,30 +1256,47 @@ export default function Game() {
              <CardHeader className="text-center pt-3 pb-0">
                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500 mx-auto mb-1 animate-bounce" />
                <CardTitle className="text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
-                 THAT&apos;S ALL, FOLKS!
+                 {gameMode === 'daily' ? 'DAILY COMPLETE!' : 'THAT&apos;S ALL, FOLKS!'}
                </CardTitle>
              </CardHeader>
              
              <CardContent className="text-center pb-2 pt-1 px-4">
                <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-1 max-w-xs mx-auto leading-relaxed">
-                 You completely ran out of valid teammates to connect!
+                 {gameMode === 'daily'
+                   ? `You completed the ${formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())} chain.`
+                   : 'You completely ran out of valid teammates to connect!'}
                </p>
-               <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Final Max Chain Length</div>
-               <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">{chainLength}</div>
+               <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">
+                 {gameMode === 'daily' ? 'Daily Score' : 'Final Max Chain Length'}
+               </div>
+               <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">
+                 {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+               </div>
+               {gameMode === 'daily' && (
+                 <p className="mt-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
+                   {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
+                 </p>
+               )}
              </CardContent>
              
-             <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5">
-               <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
-                 <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-               </Button>
+             <CardFooter className={`grid gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5 ${
+               gameMode === 'daily' ? 'grid-cols-1' : 'grid-cols-2'
+             }`}>
+               {gameMode !== 'daily' && (
+                 <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
+                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                 </Button>
+               )}
                <Button className="h-11 sm:h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20 rounded-2xl" onClick={handleShare}>
-                 <Share className="w-4 h-4 mr-2" /> Share Victory
+                 <Share className="w-4 h-4 mr-2" /> {gameMode === 'daily' ? 'Share' : 'Share Victory'}
                </Button>
              </CardFooter>
            </Card>
 
            <div className="flex-1 flex flex-col min-h-0">
-             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Winning Chain History</h3>
+             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">
+               {gameMode === 'daily' ? 'Daily Chain History' : 'Winning Chain History'}
+             </h3>
              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
                <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
                  
@@ -1000,18 +1375,33 @@ export default function Game() {
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-80"></div>
               
               <CardHeader className="text-center pt-4 pb-1">
-                <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">Chain Broken</CardTitle>
+                <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">
+                  Chain Broken
+                </CardTitle>
               </CardHeader>
               
               <CardContent className="text-center pb-2 pt-1 px-4">
-                <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">Final Chain Length</div>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">{chainLength}</div>
+                <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">
+                  {gameMode === 'daily' ? 'Daily Score' : 'Final Chain Length'}
+                </div>
+                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">
+                  {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+                </div>
+                {gameMode === 'daily' && (
+                  <p className="mt-2 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
+                    {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
+                  </p>
+                )}
               </CardContent>
               
-              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-3 border-t border-zinc-800/50 bg-black/20">
-                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
-                  <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-                </Button>
+              <CardFooter className={`grid gap-2 px-3 sm:px-4 py-3 border-t border-zinc-800/50 bg-black/20 ${
+                gameMode === 'daily' ? 'grid-cols-1' : 'grid-cols-2'
+              }`}>
+                {gameMode !== 'daily' && (
+                  <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
+                    <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                  </Button>
+                )}
                 <Button className="h-11 sm:h-12 bg-blue-600 text-white hover:bg-blue-500 font-bold rounded-2xl" onClick={handleShare}>
                   <Share className="w-4 h-4 mr-2" /> Share
                 </Button>
@@ -1019,7 +1409,9 @@ export default function Game() {
             </Card>
 
             <div className="flex-1 flex flex-col min-h-0">
-              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">Chain History</h3>
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">
+                {gameMode === 'daily' ? 'Daily Chain History' : 'Chain History'}
+              </h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
                   

@@ -130,6 +130,68 @@
 }
 
 @layer components {
+  .seven-clock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.05rem;
+    width: 4.2rem;
+    height: 2.35rem;
+  }
+
+  .seven-digit {
+    display: block;
+    width: 1.48rem;
+    height: 2.35rem;
+    overflow: visible;
+  }
+
+  .seven-digit-small {
+    align-self: flex-end;
+    width: 0.74rem;
+    height: 1.175rem;
+    margin-bottom: 0.12rem;
+  }
+
+  .seven-segment {
+    transition: stroke 120ms ease, opacity 120ms ease;
+  }
+
+  .seven-decimal {
+    align-self: flex-end;
+    width: 0.22rem;
+    height: 0.22rem;
+    margin-bottom: 0.16rem;
+    border-radius: 999px;
+    background: #ff2a12;
+    box-shadow: 0 0 3px rgba(255, 42, 18, 1), 0 0 8px rgba(255, 20, 0, 0.85);
+  }
+
+  @media (min-width: 640px) {
+    .seven-clock {
+      gap: 0.06rem;
+      width: 5rem;
+      height: 2.85rem;
+    }
+
+    .seven-digit {
+      width: 1.78rem;
+      height: 2.85rem;
+    }
+
+    .seven-digit-small {
+      width: 0.89rem;
+      height: 1.425rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .seven-decimal {
+      width: 0.27rem;
+      height: 0.27rem;
+      margin-bottom: 0.2rem;
+    }
+  }
+
   @media (max-height: 700px) {
     .leaderboard-content {
       padding: 0.75rem;
