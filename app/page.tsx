@@ -1076,7 +1076,15 @@ export default function Game() {
                       </section>
                     </div>
                     <p className="text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 text-base sm:text-lg leading-snug max-w-sm sm:max-w-lg mx-auto px-2 mt-3 sm:mt-6 font-black">
-                      Any questions? Feel free to contact me on Instagram: @bballandchain
+                      Any questions? Feel free to contact me on Instagram:{" "}
+                      <a
+                        href="https://www.instagram.com/bballandchain/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pointer-events-auto underline decoration-zinc-400/60 underline-offset-4 hover:decoration-zinc-100"
+                      >
+                        @bballandchain
+                      </a>
                     </p>
                   </div>
                 </div>
