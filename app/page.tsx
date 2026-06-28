@@ -57,6 +57,7 @@ const supabase = (() => {
 const LOCAL_HIGH_SCORE_KEY = "bballandchain.highScore";
 const DAILY_COMPLETED_DATE_KEY = "bballandchain.dailyCompletedDate";
 const SHOT_CLOCK_DECIS = 100;
+const SHOT_CLOCK_TARGET_DECIS = 110;
 const DAILY_CHAIN_LENGTH = 24;
 const SEVEN_SEGMENT_DIGITS: Record<string, string[]> = {
   "0": ["a", "b", "c", "d", "e", "f"],
@@ -111,7 +112,12 @@ function SevenSegmentDigit({ digit, small = false }: { digit: string; small?: bo
 }
 
 function ShotClockDigits({ deciseconds }: { deciseconds: number }) {
-  const clampedDeciseconds = Math.max(0, Math.min(SHOT_CLOCK_DECIS, deciseconds));
+  const visibleDeciseconds = deciseconds > 60
+    ? deciseconds - 10
+    : deciseconds > 50
+      ? 50
+      : deciseconds;
+  const clampedDeciseconds = Math.max(0, Math.min(SHOT_CLOCK_DECIS, visibleDeciseconds));
   const showTenths = clampedDeciseconds > 0 && clampedDeciseconds < 50;
   const displayValue = showTenths
     ? `${Math.floor(clampedDeciseconds / 10)}.${clampedDeciseconds % 10}`
@@ -396,7 +402,7 @@ export default function Game() {
   const [animatingRects, setAnimatingRects] = useState<{ start: DOMRect; end: DOMRect } | null>(null);
   const [animatingMove, setAnimatingMove] = useState(false);
 
-  const [timeLeft, setTimeLeft] = useState(SHOT_CLOCK_DECIS);
+  const [timeLeft, setTimeLeft] = useState(SHOT_CLOCK_TARGET_DECIS);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const targetTimeRef = useRef<number | null>(null);
   
@@ -592,7 +598,7 @@ export default function Game() {
         const remainingMs = Math.max(0, targetTimeRef.current - now);
         const remainingDeciseconds = Math.ceil(remainingMs / 100);
         
-        setTimeLeft(Math.min(remainingDeciseconds, SHOT_CLOCK_DECIS));
+        setTimeLeft(Math.min(remainingDeciseconds, SHOT_CLOCK_TARGET_DECIS));
 
         if (remainingDeciseconds <= 0) {
           handleGameOver();
@@ -705,8 +711,8 @@ export default function Game() {
     setVisitedPlayers([startId]);
     setCorrectTeammateId(challenge.rounds[0].correctId);
     setChoices(challenge.rounds[0].choices);
-    targetTimeRef.current = Date.now() + 10000;
-    setTimeLeft(SHOT_CLOCK_DECIS);
+    targetTimeRef.current = Date.now() + SHOT_CLOCK_TARGET_DECIS * 100;
+    setTimeLeft(SHOT_CLOCK_TARGET_DECIS);
     setGameState('playing');
   };
 
@@ -725,8 +731,8 @@ export default function Game() {
       const round = dailyChallenge.rounds[currentChainLength - 1];
       setCorrectTeammateId(round.correctId);
       setChoices(round.choices);
-      targetTimeRef.current = Date.now() + 10000;
-      setTimeLeft(SHOT_CLOCK_DECIS);
+      targetTimeRef.current = Date.now() + SHOT_CLOCK_TARGET_DECIS * 100;
+      setTimeLeft(SHOT_CLOCK_TARGET_DECIS);
       return;
     }
     
@@ -754,8 +760,8 @@ export default function Game() {
     const roundChoices = [correct, ...decoys].sort(() => Math.random() - 0.5);
     setChoices(roundChoices);
     
-    targetTimeRef.current = Date.now() + 10000;
-    setTimeLeft(SHOT_CLOCK_DECIS);
+    targetTimeRef.current = Date.now() + SHOT_CLOCK_TARGET_DECIS * 100;
+    setTimeLeft(SHOT_CLOCK_TARGET_DECIS);
   };
 
   const handleGuess = (id: string) => {
@@ -865,7 +871,7 @@ export default function Game() {
         Join the leaderboard
       </h2>
       <p className="mx-auto mt-3 max-w-xs text-base font-medium leading-relaxed text-zinc-300">
-        Your chain of <span className="font-black text-blue-300">{pendingLeaderboardScore}</span> made the board. Enter your name to save it.
+        Your chain of <span className="score-number text-blue-300">{pendingLeaderboardScore}</span> made the board. Enter your name to save it.
       </p>
       <div className="mt-5 flex gap-2">
         <input
@@ -952,7 +958,7 @@ export default function Game() {
           <span className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2 sm:mr-3 mt-0.5">
             Active Chain
           </span>
-          <span className="font-black text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">
+          <span className="score-number text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">
             {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
           </span>
         </div>
@@ -1003,11 +1009,13 @@ export default function Game() {
                         </span>
                       </span>
                     </Button>
-                    {showDailyCompletedMessage && (
-                      <p className="mt-2 text-xs sm:text-sm font-bold leading-snug text-zinc-400">
+                    <div className="mt-2 min-h-[2.5rem] sm:min-h-[2.25rem] flex items-start justify-center">
+                      <p className={`text-xs sm:text-sm font-bold leading-snug text-zinc-400 transition-opacity duration-200 ${
+                        showDailyCompletedMessage ? 'opacity-100' : 'opacity-0'
+                      }`}>
                         You've already played today's daily challenge. Wait until tomorrow for a new one.
                       </p>
-                    )}
+                    </div>
                     <div className="h-16 sm:h-20 w-full shrink-0" />
                   </div>
                 </div>
@@ -1034,34 +1042,34 @@ export default function Game() {
                     </CardTitle>
                     <div className="w-full max-w-sm sm:max-w-lg space-y-2 sm:space-y-4 text-left">
                       <section>
-                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">How it works</h3>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">How it works</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           You get one NBA player and two choices. Pick the player who was a teammate to extend the chain. A wrong pick or expired shot clock breaks it.
                         </p>
                       </section>
 
                       <section>
-                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Start New Chain</h3>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Start New Chain</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           A random active player starts the chain. Keep linking valid teammates for as long as you can.
                         </p>
                       </section>
 
                       <section>
-                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Daily Challenge</h3>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Daily Challenge</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           Everyone gets the same 24-player chain each day in the same order. You get one attempt to complete it.
                         </p>
                       </section>
 
                       <section>
-                        <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-300 mb-0.5 sm:mb-1.5">Teammate connections</h3>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Teammate connections</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           Two players are considered to have been teammates if they actually logged minutes together. After a chain is broken, the chain history shows the shared teams between each teammate pair, as well as which seasons they played together.
                         </p>
                       </section>
                     </div>
-                    <p className="text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 text-sm sm:text-base leading-snug max-w-sm sm:max-w-lg mx-auto px-2 mt-3 sm:mt-6 font-black">
+                    <p className="text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 text-base sm:text-lg leading-snug max-w-sm sm:max-w-lg mx-auto px-2 mt-3 sm:mt-6 font-black">
                       Any questions? Feel free to contact me on Instagram: @bballandchain
                     </p>
                   </div>
@@ -1087,11 +1095,11 @@ export default function Game() {
                       <CardTitle className="leaderboard-title text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight leading-none">
                         Leaderboard
                       </CardTitle>
-                      <p className="leaderboard-best mt-2 text-xs sm:text-sm font-black uppercase tracking-widest text-zinc-500">
-                        Your best: <span className="text-base sm:text-lg text-blue-400">{localHighScore}</span>
+                      <p className="leaderboard-best mt-2 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
+                        Your best: <span className="score-number text-lg sm:text-xl text-blue-400">{localHighScore}</span>
                       </p>
                     </div>
-                    <Button variant="outline" className="leaderboard-back border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-10 px-4 text-xs sm:text-sm font-bold rounded-2xl" onClick={() => setGameState(previousScreen)}>
+                    <Button variant="outline" className="leaderboard-back w-16 border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-10 px-4 text-sm sm:text-[15px] font-bold rounded-2xl" onClick={() => setGameState(previousScreen)}>
                       Back
                     </Button>
                   </div>
@@ -1137,7 +1145,7 @@ export default function Game() {
                                 <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-none text-zinc-100">{entry.name}</p>
                               </div>
                               <div className="text-right">
-                                <p className="leaderboard-score text-lg sm:text-xl font-black leading-none text-blue-400 tabular-nums">{entry.score}</p>
+                                <p className="leaderboard-score score-number text-lg sm:text-xl leading-none text-blue-400">{entry.score}</p>
                               </div>
                             </div>
                           ))}
@@ -1162,7 +1170,7 @@ export default function Game() {
                     <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:6px_6px]"></div>
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/6 to-transparent"></div>
                     <span className={`relative z-10 ${timeLeft < 30 ? 'animate-pulse' : ''}`}>
-                      <ShotClockDigits deciseconds={Math.min(timeLeft, SHOT_CLOCK_DECIS)} />
+                      <ShotClockDigits deciseconds={timeLeft} />
                     </span>
                   </div>
                 </div>
@@ -1267,7 +1275,7 @@ export default function Game() {
                    : 'You completely ran out of valid teammates to connect!'}
                </p>
                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">
-                 {gameMode === 'daily' ? 'Daily Score' : 'Final Max Chain Length'}
+                 {gameMode === 'daily' ? 'Daily Challenge' : 'Final Max Chain Length'}
                </div>
                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">
                  {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
@@ -1295,7 +1303,7 @@ export default function Game() {
 
            <div className="flex-1 flex flex-col min-h-0">
              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">
-               {gameMode === 'daily' ? 'Daily Chain History' : 'Winning Chain History'}
+               {gameMode === 'daily' ? 'Chain History' : 'Winning Chain History'}
              </h3>
              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
                <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
@@ -1370,33 +1378,33 @@ export default function Game() {
 
         {/* Game Over Screen */}
         {gameState === 'gameover' && (
-          <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-2">
-            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-2 overflow-hidden relative flex-shrink-0 rounded-3xl">
+          <div className="animate-in fade-in zoom-in-95 duration-400 flex flex-col h-full w-full pb-1">
+            <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-1 overflow-hidden relative flex-shrink-0 rounded-3xl">
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-80"></div>
               
-              <CardHeader className="text-center pt-4 pb-1">
+              <CardHeader className={`text-center ${gameMode === 'daily' ? 'pt-2 pb-0' : 'pt-3 pb-0'}`}>
                 <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">
                   Chain Broken
                 </CardTitle>
               </CardHeader>
               
-              <CardContent className="text-center pb-2 pt-1 px-4">
+              <CardContent className="text-center pb-0 px-4 pt-0">
                 <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">
-                  {gameMode === 'daily' ? 'Daily Score' : 'Final Chain Length'}
+                  {gameMode === 'daily' ? 'Daily Challenge' : 'Final Chain Length'}
                 </div>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-blue-500 leading-none -mb-1">
+                <div className="score-number text-5xl sm:text-6xl md:text-7xl text-blue-500 leading-none -mb-1">
                   {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
                 </div>
                 {gameMode === 'daily' && (
-                  <p className="mt-2 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
+                  <p className="mt-1 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
                     {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
                   </p>
                 )}
               </CardContent>
               
-              <CardFooter className={`grid gap-2 px-3 sm:px-4 py-3 border-t border-zinc-800/50 bg-black/20 ${
+              <CardFooter className={`grid gap-2 px-3 sm:px-4 -mt-2 border-t border-zinc-800/50 bg-black/20 ${
                 gameMode === 'daily' ? 'grid-cols-1' : 'grid-cols-2'
-              }`}>
+              } ${gameMode === 'daily' ? 'py-1.5' : 'py-2'}`}>
                 {gameMode !== 'daily' && (
                   <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
                     <RotateCcw className="w-4 h-4 mr-2" /> Play Again
@@ -1409,8 +1417,8 @@ export default function Game() {
             </Card>
 
             <div className="flex-1 flex flex-col min-h-0">
-              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">
-                {gameMode === 'daily' ? 'Daily Chain History' : 'Chain History'}
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 text-center flex-shrink-0">
+                Chain History
               </h3>
               <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
