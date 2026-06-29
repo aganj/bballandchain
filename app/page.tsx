@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check, Medal } from "lucide-react";
+import { Trophy, RotateCcw, Share, AlertTriangle, Loader2, X, Check } from "lucide-react";
 
 type GameData = {
   players: Record<string, string>;
@@ -17,9 +17,11 @@ type LeaderboardEntry = {
   name: string;
   score: number;
   created_at: string;
+  date_key?: string;
 };
 
 type GameMode = 'normal' | 'daily';
+type LeaderboardKind = 'overall' | 'daily';
 
 type DailyChallenge = {
   dateKey: string;
@@ -387,10 +389,15 @@ export default function Game() {
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
   const [localHighScore, setLocalHighScore] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [dailyLeaderboard, setDailyLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardKind, setLeaderboardKind] = useState<LeaderboardKind>('daily');
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [dailyLeaderboardError, setDailyLeaderboardError] = useState<string | null>(null);
   const [leaderboardSubmitError, setLeaderboardSubmitError] = useState<string | null>(null);
   const [pendingLeaderboardScore, setPendingLeaderboardScore] = useState<number | null>(null);
+  const [pendingLeaderboardKinds, setPendingLeaderboardKinds] = useState<LeaderboardKind[]>([]);
+  const [pendingLeaderboardDateKey, setPendingLeaderboardDateKey] = useState<string | null>(null);
   const [leaderboardName, setLeaderboardName] = useState("");
   const [submittingScore, setSubmittingScore] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
@@ -410,38 +417,93 @@ export default function Game() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dailyCompletedToday = completedDailyDate === todayDailyKey;
 
-  const loadLeaderboard = async () => {
+  const getLeaderboardTable = (kind: LeaderboardKind) => kind === 'daily' ? 'daily_leaderboard' : 'leaderboard';
+
+  const loadLeaderboards = async () => {
     if (!supabase) {
       setLeaderboardError("Add Supabase env vars to enable the leaderboard.");
+      setDailyLeaderboardError("Add Supabase env vars to enable the leaderboard.");
       return;
     }
 
     setLeaderboardLoading(true);
     setLeaderboardError(null);
+    setDailyLeaderboardError(null);
 
     try {
-      const { data, error } = await supabase
-        .from("leaderboard")
-        .select("id,name,score,created_at")
-        .order("score", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(10);
+      const [overallResult, dailyResult] = await Promise.all([
+        supabase
+          .from("leaderboard")
+          .select("id,name,score,created_at")
+          .order("score", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(10),
+        supabase
+          .from("daily_leaderboard")
+          .select("id,name,score,created_at,date_key")
+          .eq("date_key", todayDailyKey)
+          .order("score", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(10),
+      ]);
 
-      if (error) {
-        setLeaderboardError(error.message);
+      if (overallResult.error) {
+        setLeaderboardError(overallResult.error.message);
       } else {
-        setLeaderboard(data ?? []);
+        setLeaderboard(overallResult.data ?? []);
+      }
+
+      if (dailyResult.error) {
+        setDailyLeaderboardError(dailyResult.error.message);
+      } else {
+        setDailyLeaderboard(dailyResult.data ?? []);
       }
     } catch (error) {
-      setLeaderboardError(error instanceof Error ? error.message : "Unable to load leaderboard.");
+      const message = error instanceof Error ? error.message : "Unable to load leaderboard.";
+      setLeaderboardError(message);
+      setDailyLeaderboardError(message);
     } finally {
       setLeaderboardLoading(false);
     }
   };
 
-  const scoreMakesLeaderboard = (score: number, entries = leaderboard) => {
+  const scoreMakesLeaderboard = (score: number, kind: LeaderboardKind) => {
     if (!supabase || score <= 0) return false;
+    const entries = kind === 'daily' ? dailyLeaderboard : leaderboard;
     return entries.length < 10 || score > entries[entries.length - 1].score;
+  };
+
+  const pruneLeaderboard = async (kind: LeaderboardKind, dateKey = todayDailyKey) => {
+    if (!supabase) return;
+    const tableName = getLeaderboardTable(kind);
+    let query = supabase
+      .from(tableName)
+      .select("id")
+      .order("score", { ascending: false })
+      .order("created_at", { ascending: true });
+
+    if (kind === 'daily') {
+      query = query.eq("date_key", dateKey);
+    }
+
+    const { data: rankedEntries, error: pruneReadError } = await query;
+
+    if (pruneReadError) {
+      console.warn(`${tableName} cleanup read failed:`, pruneReadError.message);
+      return;
+    }
+
+    const entriesToDelete = (rankedEntries ?? []).slice(10).map(entry => entry.id);
+    if (entriesToDelete.length > 0) {
+      const { error: pruneDeleteError } = await supabase
+        .from(tableName)
+        .delete()
+        .in("id", entriesToDelete);
+
+      if (pruneDeleteError) {
+        console.warn(`${tableName} cleanup delete failed:`, pruneDeleteError.message);
+      }
+    }
   };
 
   const updateLocalHighScore = (score: number) => {
@@ -459,16 +521,21 @@ export default function Game() {
     targetTimeRef.current = null;
     isAdvancingRef.current = false;
     clearInterval(timerRef.current as NodeJS.Timeout);
+    const dailyDateKey = dailyChallenge?.dateKey ?? getDailyDateKey();
     if (gameMode === 'daily') {
-      const dateKey = dailyChallenge?.dateKey ?? getDailyDateKey();
-      setCompletedDailyDate(dateKey);
+      setCompletedDailyDate(dailyDateKey);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(DAILY_COMPLETED_DATE_KEY, dateKey);
+        window.localStorage.setItem(DAILY_COMPLETED_DATE_KEY, dailyDateKey);
       }
     }
     updateLocalHighScore(finalScore);
+    const qualifyingBoards: LeaderboardKind[] = [];
+    if (scoreMakesLeaderboard(finalScore, 'overall')) qualifyingBoards.push('overall');
+    if (gameMode === 'daily' && scoreMakesLeaderboard(finalScore, 'daily')) qualifyingBoards.push('daily');
     setScoreSubmitted(false);
-    setPendingLeaderboardScore(scoreMakesLeaderboard(finalScore) ? finalScore : null);
+    setPendingLeaderboardKinds(qualifyingBoards);
+    setPendingLeaderboardDateKey(gameMode === 'daily' ? dailyDateKey : null);
+    setPendingLeaderboardScore(qualifyingBoards.length > 0 ? finalScore : null);
   };
 
   const openLeaderboard = () => {
@@ -478,11 +545,11 @@ export default function Game() {
       setPreviousScreen('start');
     }
     setGameState('leaderboard');
-    loadLeaderboard();
+    loadLeaderboards();
   };
 
   const submitLeaderboardScore = async () => {
-    if (!supabase || pendingLeaderboardScore === null || submittingScore) return;
+    if (!supabase || pendingLeaderboardScore === null || pendingLeaderboardKinds.length === 0 || submittingScore) return;
 
     const cleanName = leaderboardName.trim().replace(/\s+/g, " ").slice(0, 18);
     if (!cleanName) return;
@@ -513,40 +580,31 @@ export default function Game() {
       return;
     }
 
-    const { error } = await supabase
-      .from("leaderboard")
-      .insert({ name: cleanName, score: pendingLeaderboardScore });
+    for (const kind of pendingLeaderboardKinds) {
+      const tableName = getLeaderboardTable(kind);
+      const { error } = kind === 'daily'
+        ? await supabase
+          .from(tableName)
+          .insert({ name: cleanName, score: pendingLeaderboardScore, date_key: pendingLeaderboardDateKey ?? todayDailyKey })
+        : await supabase
+          .from(tableName)
+          .insert({ name: cleanName, score: pendingLeaderboardScore });
 
-    if (error) {
-      setLeaderboardSubmitError(error.message);
-    } else {
-      const { data: rankedEntries, error: pruneReadError } = await supabase
-        .from("leaderboard")
-        .select("id")
-        .order("score", { ascending: false })
-        .order("created_at", { ascending: true });
-
-      if (pruneReadError) {
-        console.warn("Leaderboard cleanup read failed:", pruneReadError.message);
-      } else {
-        const entriesToDelete = (rankedEntries ?? []).slice(10).map(entry => entry.id);
-        if (entriesToDelete.length > 0) {
-          const { error: pruneDeleteError } = await supabase
-            .from("leaderboard")
-            .delete()
-            .in("id", entriesToDelete);
-
-          if (pruneDeleteError) {
-            console.warn("Leaderboard cleanup delete failed:", pruneDeleteError.message);
-          }
-        }
+      if (error) {
+        setLeaderboardSubmitError(error.message);
+        setSubmittingScore(false);
+        return;
       }
 
-      setPendingLeaderboardScore(null);
-      setLeaderboardName("");
-      setScoreSubmitted(true);
-      await loadLeaderboard();
+      await pruneLeaderboard(kind, pendingLeaderboardDateKey ?? todayDailyKey);
     }
+
+    setPendingLeaderboardScore(null);
+    setPendingLeaderboardKinds([]);
+    setPendingLeaderboardDateKey(null);
+    setLeaderboardName("");
+    setScoreSubmitted(true);
+    await loadLeaderboards();
 
     setSubmittingScore(false);
   };
@@ -570,7 +628,7 @@ export default function Game() {
       setLocalHighScore(Number(savedHighScore) || 0);
     }
     setCompletedDailyDate(window.localStorage.getItem(DAILY_COMPLETED_DATE_KEY));
-    loadLeaderboard();
+    loadLeaderboards();
   }, []);
 
   useEffect(() => {
@@ -583,6 +641,10 @@ export default function Game() {
     const intervalId = window.setInterval(syncLocalDailyKey, 30000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    loadLeaderboards();
+  }, [todayDailyKey]);
 
   useEffect(() => {
     if (!dailyCompletedToday) {
@@ -862,6 +924,9 @@ export default function Game() {
     e.currentTarget.src = "https://cdn.nba.com/headshots/nba/latest/260x190/fallback.png";
   };
 
+  const activeLeaderboard = leaderboardKind === 'daily' ? dailyLeaderboard : leaderboard;
+  const activeLeaderboardError = leaderboardKind === 'daily' ? dailyLeaderboardError : leaderboardError;
+
   const leaderboardPrompt = pendingLeaderboardScore !== null && !scoreSubmitted && (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-in fade-in duration-200">
     <form
@@ -1118,6 +1183,33 @@ export default function Game() {
                     </Button>
                   </div>
 
+                  <div className="leaderboard-tabs mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-1">
+                    {(['daily', 'overall'] as LeaderboardKind[]).map(kind => (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => setLeaderboardKind(kind)}
+                        className={`h-9 rounded-xl text-[11px] sm:text-sm font-black transition ${
+                          leaderboardKind === kind
+                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-950/40'
+                            : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
+                        }`}
+                      >
+                        {kind === 'daily' ? 'Daily Challenge' : 'Overall'}
+                      </button>
+                    ))}
+                  </div>
+                  {leaderboardKind === 'daily' && (
+                    <div className="leaderboard-date mb-3 text-center">
+                      <p className="text-xs sm:text-sm font-black uppercase tracking-widest text-zinc-100">
+                        {formatDailyDate(todayDailyKey)}
+                      </p>
+                      <p className="mt-1 text-[10px] sm:text-xs font-bold leading-snug text-zinc-500">
+                        Only scores from today's daily challenge count
+                      </p>
+                    </div>
+                  )}
+
                   <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/60">
                     <div className="leaderboard-panel-inner flex h-full flex-col p-3 sm:p-4">
                       {leaderboardLoading && (
@@ -1127,39 +1219,38 @@ export default function Game() {
                         </div>
                       )}
 
-                      {!leaderboardLoading && leaderboardError && (
+                      {!leaderboardLoading && activeLeaderboardError && (
                         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                           <AlertTriangle className="mb-3 size-8 text-amber-500" />
                           <p className="text-sm font-bold text-zinc-300">Leaderboard unavailable</p>
-                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">{leaderboardError}</p>
+                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">{activeLeaderboardError}</p>
                         </div>
                       )}
 
-                      {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
+                      {!leaderboardLoading && !activeLeaderboardError && activeLeaderboard.length === 0 && (
                         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                          <Medal className="mb-3 size-8 text-blue-400" />
                           <p className="text-sm font-bold text-zinc-300">No scores yet</p>
                           <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">Be the first chain on the board.</p>
                         </div>
                       )}
 
-                      {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
+                      {!leaderboardLoading && !activeLeaderboardError && activeLeaderboard.length > 0 && (
                         <div className="flex h-full min-h-0 flex-col">
                           <div className="leaderboard-table-header grid shrink-0 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/80 px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                             <span>Rank</span>
                             <span>Name</span>
                             <span className="text-right">Score</span>
                           </div>
-                          {leaderboard.map((entry, idx) => (
+                          {activeLeaderboard.map((entry, idx) => (
                             <div key={entry.id} className="leaderboard-table-row grid min-h-0 flex-1 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/50 px-2 last:border-b-0">
-                              <div className="leaderboard-rank text-sm sm:text-base font-black leading-none text-zinc-500 tabular-nums">
+                              <div className="leaderboard-rank text-sm sm:text-base font-black leading-snug text-zinc-500 tabular-nums">
                                 #{idx + 1}
                               </div>
                               <div className="min-w-0">
-                                <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-none text-zinc-100">{entry.name}</p>
+                                <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-snug text-zinc-100">{entry.name}</p>
                               </div>
                               <div className="text-right">
-                                <p className="leaderboard-score score-number text-lg sm:text-xl leading-none text-blue-400">{entry.score}</p>
+                                <p className="leaderboard-score score-number text-lg sm:text-xl leading-snug text-blue-400">{entry.score}</p>
                               </div>
                             </div>
                           ))}
