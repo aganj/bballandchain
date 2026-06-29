@@ -1241,19 +1241,29 @@ export default function Game() {
                             <span>Name</span>
                             <span className="text-right">Score</span>
                           </div>
-                          {activeLeaderboard.map((entry, idx) => (
-                            <div key={entry.id} className="leaderboard-table-row grid min-h-0 flex-1 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/50 px-2 last:border-b-0">
-                              <div className="leaderboard-rank text-sm sm:text-base font-black leading-snug text-zinc-500 tabular-nums">
-                                #{idx + 1}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-snug text-zinc-100">{entry.name}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="leaderboard-score score-number text-lg sm:text-xl leading-snug text-blue-400">{entry.score}</p>
-                              </div>
-                            </div>
-                          ))}
+                          <div className="grid min-h-0 flex-1 grid-rows-[repeat(10,minmax(0,1fr))]">
+                            {Array.from({ length: 10 }).map((_, idx) => {
+                              const entry = activeLeaderboard[idx];
+
+                              return (
+                                <div key={entry?.id ?? `empty-${idx}`} className="leaderboard-table-row grid min-h-0 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/50 px-2 last:border-b-0">
+                                  {entry && (
+                                    <>
+                                      <div className="leaderboard-rank text-sm sm:text-base font-black leading-snug text-zinc-500 tabular-nums">
+                                        #{idx + 1}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="leaderboard-name truncate text-sm sm:text-base font-black leading-snug text-zinc-100">{entry.name}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="leaderboard-score score-number text-lg sm:text-xl leading-snug text-blue-400">{entry.score}</p>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
