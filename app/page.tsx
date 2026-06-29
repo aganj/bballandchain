@@ -926,6 +926,11 @@ export default function Game() {
 
   const activeLeaderboard = leaderboardKind === 'daily' ? dailyLeaderboard : leaderboard;
   const activeLeaderboardError = leaderboardKind === 'daily' ? dailyLeaderboardError : leaderboardError;
+  const pendingBoardLabel = pendingLeaderboardKinds.length === 2
+    ? 'Daily Challenge and Overall leaderboards'
+    : pendingLeaderboardKinds[0] === 'daily'
+      ? 'Daily Challenge leaderboard'
+      : 'Overall leaderboard';
 
   const leaderboardPrompt = pendingLeaderboardScore !== null && !scoreSubmitted && (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-in fade-in duration-200">
@@ -937,10 +942,10 @@ export default function Game() {
       }}
     >
       <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-100">
-        Join the leaderboard
+        Join the {pendingLeaderboardKinds.length === 2 ? 'leaderboards' : 'leaderboard'}
       </h2>
       <p className="mx-auto mt-3 max-w-xs text-base font-medium leading-relaxed text-zinc-300">
-        Your chain of <span className="score-number text-blue-300">{pendingLeaderboardScore}</span> made the board. Enter your name to save it.
+        Your chain of <span className="score-number text-blue-300">{pendingLeaderboardScore}</span> made the {pendingBoardLabel}. Enter your name to save it.
       </p>
       <div className="mt-5 flex gap-2">
         <input
