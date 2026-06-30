@@ -254,7 +254,7 @@ const getValidNextPlayers = (gameData: GameData, currentVisited: string[]) => {
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard' | 'privacy'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard' | 'privacy' | 'terms'>('start');
   const [previousScreen, setPreviousScreen] = useState<'start' | 'gameover' | 'victory'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -785,13 +785,23 @@ export default function Game() {
               >
                 
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
-                <button
-                  type="button"
-                  onClick={() => setGameState('privacy')}
-                  className="pointer-events-auto absolute bottom-3 left-4 z-20 text-left text-[10px] sm:bottom-4 sm:left-6 sm:text-xs font-bold tracking-wide text-zinc-500 underline decoration-zinc-700 underline-offset-4 transition hover:text-zinc-300 hover:decoration-zinc-400"
-                >
-                  Privacy Policy
-                </button>
+                <div className="absolute bottom-3 left-4 z-20 flex items-center gap-2 text-left text-[10px] sm:bottom-4 sm:left-6 sm:text-xs font-bold tracking-wide text-zinc-500">
+                  <button
+                    type="button"
+                    onClick={() => setGameState('privacy')}
+                    className="pointer-events-auto underline decoration-zinc-700 underline-offset-4 transition hover:text-zinc-300 hover:decoration-zinc-400"
+                  >
+                    Privacy
+                  </button>
+                  <span className="text-zinc-700">/</span>
+                  <button
+                    type="button"
+                    onClick={() => setGameState('terms')}
+                    className="pointer-events-auto underline decoration-zinc-700 underline-offset-4 transition hover:text-zinc-300 hover:decoration-zinc-400"
+                  >
+                    Terms
+                  </button>
+                </div>
                 <p className="pointer-events-none absolute bottom-3 right-4 z-20 text-right text-[10px] sm:bottom-4 sm:right-6 sm:text-xs font-bold tracking-wide text-zinc-600">
                   © 2026 BBall and Chain
                 </p>
@@ -910,6 +920,60 @@ export default function Game() {
                         <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Contact</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           For privacy questions or leaderboard removal requests, contact @bballandchain on Instagram.
+                        </p>
+                      </section>
+                    </div>
+                    <p className="mt-3 sm:mt-6 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      Last updated June 30, 2026
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Terms Screen */}
+        {gameState === 'terms' && (
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+            <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+              <Card 
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-3xl flex flex-col isolate"
+                style={{ transform: 'translateZ(0)' }}
+              >
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
+                <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-5 sm:p-8 text-center h-full min-h-0">
+                  <div className="flex w-full flex-1 flex-col items-center justify-center px-1">
+                    <CardTitle className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-3 sm:mb-6">
+                      Terms of Service
+                    </CardTitle>
+                    <div className="w-full max-w-sm sm:max-w-lg space-y-2 sm:space-y-4 text-left">
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Use of the game</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          BBall and Chain is provided for entertainment. Use it fairly and do not try to disrupt, scrape, or abuse the service.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Leaderboard names</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          Leaderboard names must be appropriate. Scores or names may be removed if they are offensive, spammy, or clearly abusive.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Accuracy</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          The game uses NBA teammate data, but mistakes can happen. The game is provided as is, without guarantees.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Contact</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          For questions or removal requests, contact @bballandchain on Instagram.
                         </p>
                       </section>
                     </div>
