@@ -208,28 +208,6 @@
       margin-bottom: 0.5rem;
     }
 
-    .leaderboard-tabs {
-      margin-bottom: 0.5rem;
-    }
-
-    .leaderboard-tabs button {
-      height: 2rem;
-      font-size: 11px;
-    }
-
-    .leaderboard-date {
-      margin-bottom: 0.5rem;
-    }
-
-    .leaderboard-date p:first-child {
-      font-size: 10px;
-    }
-
-    .leaderboard-date p:last-child {
-      margin-top: 0.125rem;
-      font-size: 9px;
-    }
-
     .leaderboard-title {
       font-size: 1.25rem;
     }

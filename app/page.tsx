@@ -17,16 +17,6 @@ type LeaderboardEntry = {
   name: string;
   score: number;
   created_at: string;
-  date_key?: string;
-};
-
-type GameMode = 'normal' | 'daily';
-type LeaderboardKind = 'overall' | 'daily';
-
-type DailyChallenge = {
-  dateKey: string;
-  playerIds: string[];
-  rounds: { correctId: string; choices: string[] }[];
 };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -57,10 +47,8 @@ const supabase = (() => {
 })();
 
 const LOCAL_HIGH_SCORE_KEY = "bballandchain.highScore";
-const DAILY_COMPLETED_DATE_KEY = "bballandchain.dailyCompletedDate";
 const SHOT_CLOCK_DECIS = 100;
 const SHOT_CLOCK_TARGET_DECIS = 110;
-const DAILY_CHAIN_LENGTH = 24;
 const SEVEN_SEGMENT_DIGITS: Record<string, string[]> = {
   "0": ["a", "b", "c", "d", "e", "f"],
   "1": ["b", "c"],
@@ -248,73 +236,6 @@ const formatYearsList = (yearsList: string[]) => {
   return formattedList.filter(y => y !== "").join(', ');
 };
 
-const getDailyDateKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const parseDailyDateKey = (dateKey: string) => {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return { year, month, day };
-};
-
-const getDateIndex = (dateKey: string) => {
-  const { year, month, day } = parseDailyDateKey(dateKey);
-  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
-};
-
-const getOrdinalSuffix = (day: number) => {
-  if (day >= 11 && day <= 13) return "th";
-  const lastDigit = day % 10;
-  if (lastDigit === 1) return "st";
-  if (lastDigit === 2) return "nd";
-  if (lastDigit === 3) return "rd";
-  return "th";
-};
-
-const formatDailyDate = (dateKey: string) => {
-  const { year, month, day } = parseDailyDateKey(dateKey);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  const monthName = date.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-  return `${monthName} ${day}${getOrdinalSuffix(day)}`;
-};
-
-const hashStringToSeed = (value: string) => {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
-
-const createSeededRandom = (seed: number) => {
-  let state = seed || 1;
-  return () => {
-    state |= 0;
-    state = (state + 0x6D2B79F5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
-
-const pickSeeded = <T,>(items: T[], random: () => number) => {
-  return items[Math.floor(random() * items.length)];
-};
-
-const shuffleSeeded = <T,>(items: T[], random: () => number) => {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
 const getValidNextPlayers = (gameData: GameData, currentVisited: string[]) => {
   const playerId = currentVisited[currentVisited.length - 1];
   const teammates = Object.keys(gameData.network[playerId] || {});
@@ -330,55 +251,11 @@ const getValidNextPlayers = (gameData: GameData, currentVisited: string[]) => {
   return validTeammates;
 };
 
-const buildDailyChallenge = (gameData: GameData, dateKey = getDailyDateKey()): DailyChallenge => {
-  const allPlayerIds = Object.keys(gameData.players).sort();
-  const playableIds = Object.keys(gameData.network)
-    .filter(id => Object.keys(gameData.network[id] || {}).length > 0)
-    .sort();
-  const dateIndex = getDateIndex(dateKey);
-
-  for (let attempt = 0; attempt < 500; attempt++) {
-    const random = createSeededRandom(hashStringToSeed(`bballandchain-daily-${dateKey}-${attempt}`));
-    const startId = playableIds[(dateIndex * 37 + attempt) % playableIds.length];
-    const playerIds = [startId];
-    const rounds: DailyChallenge["rounds"] = [];
-
-    while (playerIds.length < DAILY_CHAIN_LENGTH) {
-      const currentId = playerIds[playerIds.length - 1];
-      const validTeammates = getValidNextPlayers(gameData, playerIds);
-      if (validTeammates.length === 0) break;
-
-      const correctId = pickSeeded(validTeammates, random);
-      const teammates = new Set(Object.keys(gameData.network[currentId] || {}));
-      const decoys = allPlayerIds.filter(id => id !== currentId && id !== correctId && !teammates.has(id));
-      if (decoys.length === 0) break;
-
-      const decoyId = pickSeeded(decoys, random);
-      rounds.push({
-        correctId,
-        choices: shuffleSeeded([correctId, decoyId], random),
-      });
-      playerIds.push(correctId);
-    }
-
-    if (playerIds.length === DAILY_CHAIN_LENGTH && rounds.length === DAILY_CHAIN_LENGTH - 1) {
-      return { dateKey, playerIds, rounds };
-    }
-  }
-
-  throw new Error("Unable to generate today's daily challenge.");
-};
-
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard'>('start');
   const [previousScreen, setPreviousScreen] = useState<'start' | 'gameover' | 'victory'>('start');
-  const [gameMode, setGameMode] = useState<GameMode>('normal');
-  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
-  const [completedDailyDate, setCompletedDailyDate] = useState<string | null>(null);
-  const [todayDailyKey, setTodayDailyKey] = useState(getDailyDateKey);
-  const [showDailyCompletedMessage, setShowDailyCompletedMessage] = useState(false);
   
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [correctTeammateId, setCorrectTeammateId] = useState<string | null>(null);
@@ -389,15 +266,10 @@ export default function Game() {
   const [visitedPlayers, setVisitedPlayers] = useState<string[]>([]);
   const [localHighScore, setLocalHighScore] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [dailyLeaderboard, setDailyLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [leaderboardKind, setLeaderboardKind] = useState<LeaderboardKind>('daily');
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
-  const [dailyLeaderboardError, setDailyLeaderboardError] = useState<string | null>(null);
   const [leaderboardSubmitError, setLeaderboardSubmitError] = useState<string | null>(null);
   const [pendingLeaderboardScore, setPendingLeaderboardScore] = useState<number | null>(null);
-  const [pendingLeaderboardKinds, setPendingLeaderboardKinds] = useState<LeaderboardKind[]>([]);
-  const [pendingLeaderboardDateKey, setPendingLeaderboardDateKey] = useState<string | null>(null);
   const [leaderboardName, setLeaderboardName] = useState("");
   const [submittingScore, setSubmittingScore] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
@@ -415,93 +287,62 @@ export default function Game() {
   const isAdvancingRef = useRef(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const dailyCompletedToday = completedDailyDate === todayDailyKey;
-
-  const getLeaderboardTable = (kind: LeaderboardKind) => kind === 'daily' ? 'daily_leaderboard' : 'leaderboard';
-
-  const loadLeaderboards = async () => {
+  const loadLeaderboard = async () => {
     if (!supabase) {
       setLeaderboardError("Add Supabase env vars to enable the leaderboard.");
-      setDailyLeaderboardError("Add Supabase env vars to enable the leaderboard.");
       return;
     }
 
     setLeaderboardLoading(true);
     setLeaderboardError(null);
-    setDailyLeaderboardError(null);
 
     try {
-      const [overallResult, dailyResult] = await Promise.all([
-        supabase
-          .from("leaderboard")
-          .select("id,name,score,created_at")
-          .order("score", { ascending: false })
-          .order("created_at", { ascending: true })
-          .limit(10),
-        supabase
-          .from("daily_leaderboard")
-          .select("id,name,score,created_at,date_key")
-          .eq("date_key", todayDailyKey)
-          .order("score", { ascending: false })
-          .order("created_at", { ascending: true })
-          .limit(10),
-      ]);
+      const { data, error } = await supabase
+        .from("leaderboard")
+        .select("id,name,score,created_at")
+        .order("score", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(10);
 
-      if (overallResult.error) {
-        setLeaderboardError(overallResult.error.message);
+      if (error) {
+        setLeaderboardError(error.message);
       } else {
-        setLeaderboard(overallResult.data ?? []);
-      }
-
-      if (dailyResult.error) {
-        setDailyLeaderboardError(dailyResult.error.message);
-      } else {
-        setDailyLeaderboard(dailyResult.data ?? []);
+        setLeaderboard(data ?? []);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to load leaderboard.";
-      setLeaderboardError(message);
-      setDailyLeaderboardError(message);
+      setLeaderboardError(error instanceof Error ? error.message : "Unable to load leaderboard.");
     } finally {
       setLeaderboardLoading(false);
     }
   };
 
-  const scoreMakesLeaderboard = (score: number, kind: LeaderboardKind) => {
+  const scoreMakesLeaderboard = (score: number) => {
     if (!supabase || score <= 0) return false;
-    const entries = kind === 'daily' ? dailyLeaderboard : leaderboard;
-    return entries.length < 10 || score > entries[entries.length - 1].score;
+    return leaderboard.length < 10 || score > leaderboard[leaderboard.length - 1].score;
   };
 
-  const pruneLeaderboard = async (kind: LeaderboardKind, dateKey = todayDailyKey) => {
+  const pruneLeaderboard = async () => {
     if (!supabase) return;
-    const tableName = getLeaderboardTable(kind);
-    let query = supabase
-      .from(tableName)
+    const { data: rankedEntries, error: pruneReadError } = await supabase
+      .from("leaderboard")
       .select("id")
       .order("score", { ascending: false })
       .order("created_at", { ascending: true });
 
-    if (kind === 'daily') {
-      query = query.eq("date_key", dateKey);
-    }
-
-    const { data: rankedEntries, error: pruneReadError } = await query;
-
     if (pruneReadError) {
-      console.warn(`${tableName} cleanup read failed:`, pruneReadError.message);
+      console.warn("Leaderboard cleanup read failed:", pruneReadError.message);
       return;
     }
 
     const entriesToDelete = (rankedEntries ?? []).slice(10).map(entry => entry.id);
     if (entriesToDelete.length > 0) {
       const { error: pruneDeleteError } = await supabase
-        .from(tableName)
+        .from("leaderboard")
         .delete()
         .in("id", entriesToDelete);
 
       if (pruneDeleteError) {
-        console.warn(`${tableName} cleanup delete failed:`, pruneDeleteError.message);
+        console.warn("Leaderboard cleanup delete failed:", pruneDeleteError.message);
       }
     }
   };
@@ -521,21 +362,9 @@ export default function Game() {
     targetTimeRef.current = null;
     isAdvancingRef.current = false;
     clearInterval(timerRef.current as NodeJS.Timeout);
-    const dailyDateKey = dailyChallenge?.dateKey ?? getDailyDateKey();
-    if (gameMode === 'daily') {
-      setCompletedDailyDate(dailyDateKey);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(DAILY_COMPLETED_DATE_KEY, dailyDateKey);
-      }
-    }
     updateLocalHighScore(finalScore);
-    const qualifyingBoards: LeaderboardKind[] = [];
-    if (scoreMakesLeaderboard(finalScore, 'overall')) qualifyingBoards.push('overall');
-    if (gameMode === 'daily' && scoreMakesLeaderboard(finalScore, 'daily')) qualifyingBoards.push('daily');
     setScoreSubmitted(false);
-    setPendingLeaderboardKinds(qualifyingBoards);
-    setPendingLeaderboardDateKey(gameMode === 'daily' ? dailyDateKey : null);
-    setPendingLeaderboardScore(qualifyingBoards.length > 0 ? finalScore : null);
+    setPendingLeaderboardScore(scoreMakesLeaderboard(finalScore) ? finalScore : null);
   };
 
   const openLeaderboard = () => {
@@ -545,11 +374,11 @@ export default function Game() {
       setPreviousScreen('start');
     }
     setGameState('leaderboard');
-    loadLeaderboards();
+    loadLeaderboard();
   };
 
   const submitLeaderboardScore = async () => {
-    if (!supabase || pendingLeaderboardScore === null || pendingLeaderboardKinds.length === 0 || submittingScore) return;
+    if (!supabase || pendingLeaderboardScore === null || submittingScore) return;
 
     const cleanName = leaderboardName.trim().replace(/\s+/g, " ").slice(0, 18);
     if (!cleanName) return;
@@ -580,31 +409,21 @@ export default function Game() {
       return;
     }
 
-    for (const kind of pendingLeaderboardKinds) {
-      const tableName = getLeaderboardTable(kind);
-      const { error } = kind === 'daily'
-        ? await supabase
-          .from(tableName)
-          .insert({ name: cleanName, score: pendingLeaderboardScore, date_key: pendingLeaderboardDateKey ?? todayDailyKey })
-        : await supabase
-          .from(tableName)
-          .insert({ name: cleanName, score: pendingLeaderboardScore });
+    const { error } = await supabase
+      .from("leaderboard")
+      .insert({ name: cleanName, score: pendingLeaderboardScore });
 
-      if (error) {
-        setLeaderboardSubmitError(error.message);
-        setSubmittingScore(false);
-        return;
-      }
-
-      await pruneLeaderboard(kind, pendingLeaderboardDateKey ?? todayDailyKey);
+    if (error) {
+      setLeaderboardSubmitError(error.message);
+      setSubmittingScore(false);
+      return;
     }
 
+    await pruneLeaderboard();
     setPendingLeaderboardScore(null);
-    setPendingLeaderboardKinds([]);
-    setPendingLeaderboardDateKey(null);
     setLeaderboardName("");
     setScoreSubmitted(true);
-    await loadLeaderboards();
+    await loadLeaderboard();
 
     setSubmittingScore(false);
   };
@@ -627,30 +446,8 @@ export default function Game() {
     if (savedHighScore) {
       setLocalHighScore(Number(savedHighScore) || 0);
     }
-    setCompletedDailyDate(window.localStorage.getItem(DAILY_COMPLETED_DATE_KEY));
-    loadLeaderboards();
+    loadLeaderboard();
   }, []);
-
-  useEffect(() => {
-    const syncLocalDailyKey = () => {
-      const nextDailyKey = getDailyDateKey();
-      setTodayDailyKey(current => current === nextDailyKey ? current : nextDailyKey);
-    };
-
-    syncLocalDailyKey();
-    const intervalId = window.setInterval(syncLocalDailyKey, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    loadLeaderboards();
-  }, [todayDailyKey]);
-
-  useEffect(() => {
-    if (!dailyCompletedToday) {
-      setShowDailyCompletedMessage(false);
-    }
-  }, [dailyCompletedToday]);
 
   useEffect(() => {
     // The shot clock keeps ticking even if an animation is happening
@@ -715,7 +512,6 @@ export default function Game() {
 
   const goHome = () => {
     setGameState('start');
-    setGameMode('normal');
     targetTimeRef.current = null;
     isAdvancingRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -734,9 +530,6 @@ export default function Game() {
 
   const startGame = () => {
     if (!gameData) return;
-    setShowDailyCompletedMessage(false);
-    setGameMode('normal');
-    setDailyChallenge(null);
     resetRoundState();
     
     const playerIds = Object.keys(gameData.network);
@@ -753,54 +546,9 @@ export default function Game() {
     setGameState('playing');
   };
 
-  const startDailyChallenge = () => {
-    if (!gameData) return;
-    if (dailyCompletedToday) {
-      setShowDailyCompletedMessage(true);
-      return;
-    }
-    setShowDailyCompletedMessage(false);
-
-    let challenge: DailyChallenge;
-    try {
-      challenge = buildDailyChallenge(gameData, todayDailyKey);
-    } catch (error) {
-      setFetchError(error instanceof Error ? error.message : "Unable to generate today's daily challenge.");
-      return;
-    }
-    setGameMode('daily');
-    setDailyChallenge(challenge);
-    resetRoundState();
-
-    const startId = challenge.playerIds[0];
-    setCurrentId(startId);
-    setVisitedPlayers([startId]);
-    setCorrectTeammateId(challenge.rounds[0].correctId);
-    setChoices(challenge.rounds[0].choices);
-    targetTimeRef.current = Date.now() + SHOT_CLOCK_TARGET_DECIS * 100;
-    setTimeLeft(SHOT_CLOCK_TARGET_DECIS);
-    setGameState('playing');
-  };
-
   const generateRound = (playerId: string, currentVisited: string[], currentChainLength: number) => {
     if (!gameData) return;
     setSelectedChoiceId(null);
-
-    if (gameMode === 'daily') {
-      if (!dailyChallenge) return;
-
-      if (currentChainLength >= DAILY_CHAIN_LENGTH) {
-        finishGame('victory', DAILY_CHAIN_LENGTH);
-        return;
-      }
-
-      const round = dailyChallenge.rounds[currentChainLength - 1];
-      setCorrectTeammateId(round.correctId);
-      setChoices(round.choices);
-      targetTimeRef.current = Date.now() + SHOT_CLOCK_TARGET_DECIS * 100;
-      setTimeLeft(SHOT_CLOCK_TARGET_DECIS);
-      return;
-    }
     
     const teammates = Object.keys(gameData.network[playerId]);
     const validTeammates = getValidNextPlayers(gameData, currentVisited);
@@ -900,9 +648,7 @@ export default function Game() {
 
   const handleShare = async () => {
     const playerText = chainLength === 1 ? 'player' : 'players';
-    const message = gameMode === 'daily'
-      ? `I linked ${chainLength} out of ${DAILY_CHAIN_LENGTH} ${playerText} for the daily challenge on bballandchain.com`
-      : gameState === 'victory' 
+    const message = gameState === 'victory' 
         ? `I cleared the chain with ${chainLength} NBA ${playerText} on bballandchain.com`
         : `I linked ${chainLength} NBA ${playerText} on bballandchain.com`;
     
@@ -924,14 +670,6 @@ export default function Game() {
     e.currentTarget.src = "https://cdn.nba.com/headshots/nba/latest/260x190/fallback.png";
   };
 
-  const activeLeaderboard = leaderboardKind === 'daily' ? dailyLeaderboard : leaderboard;
-  const activeLeaderboardError = leaderboardKind === 'daily' ? dailyLeaderboardError : leaderboardError;
-  const pendingBoardLabel = pendingLeaderboardKinds.length === 2
-    ? 'Daily Challenge and Overall leaderboards'
-    : pendingLeaderboardKinds[0] === 'daily'
-      ? 'Daily Challenge leaderboard'
-      : 'Overall leaderboard';
-
   const leaderboardPrompt = pendingLeaderboardScore !== null && !scoreSubmitted && (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-in fade-in duration-200">
     <form
@@ -942,10 +680,10 @@ export default function Game() {
       }}
     >
       <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-100">
-        Join the {pendingLeaderboardKinds.length === 2 ? 'leaderboards' : 'leaderboard'}
+        Join the leaderboard
       </h2>
       <p className="mx-auto mt-3 max-w-xs text-base font-medium leading-relaxed text-zinc-300">
-        Your chain of <span className="score-number text-blue-300">{pendingLeaderboardScore}</span> made the {pendingBoardLabel}. Enter your name to save it.
+        Your chain of <span className="score-number text-blue-300">{pendingLeaderboardScore}</span> made the board. Enter your name to save it.
       </p>
       <div className="mt-5 flex gap-2">
         <input
@@ -1004,17 +742,12 @@ export default function Game() {
           onClick={goHome}
           className={`absolute flex items-center justify-center rounded-full cursor-pointer transition-all duration-700 ease-in-out z-50 group origin-center
             ${gameState === 'start'
-              ? 'top-[26dvh] sm:top-[23dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
+              ? 'top-[29dvh] sm:top-[26dvh] left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[2.2] sm:scale-[2.6] bg-transparent border-transparent drop-shadow-md hover:scale-[2.25] sm:hover:scale-[2.65]'
               : 'top-1/2 left-0 -translate-y-1/2 translate-x-0 scale-100 bg-[#0a0a0a] border border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 active:scale-95'
             }
           `}
         >
           <span className="font-black text-lg sm:text-xl tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent px-4 py-1.5 whitespace-nowrap">BBall and Chain</span>
-          <span className={`absolute top-full mt-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-opacity duration-300 whitespace-nowrap ${
-            gameState === 'playing' && gameMode === 'daily' ? 'opacity-100' : 'opacity-0'
-          }`}>
-            Daily Challenge
-          </span>
         </div>
 
         <div className="flex-1" />
@@ -1033,7 +766,7 @@ export default function Game() {
             Active Chain
           </span>
           <span className="score-number text-lg sm:text-xl text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]">
-            {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+            {chainLength}
           </span>
         </div>
       </header>
@@ -1058,7 +791,7 @@ export default function Game() {
                 
                 <div className="relative z-10 flex flex-col items-center flex-1 p-6 sm:p-10 text-center h-full">
                   <div className="flex h-full w-full max-w-sm flex-col items-center mx-auto">
-                    <div className="h-[19dvh] sm:h-[18dvh] w-full shrink-0" />
+                    <div className="h-[22dvh] sm:h-[21dvh] w-full shrink-0" />
                     <p className="text-zinc-300 font-medium text-sm sm:text-base leading-relaxed px-2">
                       Connect NBA teammates. One wrong link or an expired shot clock ends your chain. 
                     </p>
@@ -1066,34 +799,7 @@ export default function Game() {
                     <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-lg sm:text-xl h-14 sm:h-16 font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] rounded-2xl" onClick={startGame}>
                       Start New Chain
                     </Button>
-                    <p className="mt-3 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
-                      or try the
-                    </p>
-                    <Button
-                      size="lg"
-                      aria-disabled={dailyCompletedToday}
-                      className={`mt-2 w-full border border-zinc-700 bg-zinc-950/70 hover:bg-zinc-800 text-zinc-100 h-14 sm:h-16 font-bold transition-all rounded-2xl ${
-                        dailyCompletedToday
-                          ? 'cursor-not-allowed bg-zinc-900 text-zinc-500 border-zinc-800 shadow-none opacity-60 blur-[0.4px] hover:bg-zinc-900 hover:scale-100 active:scale-100'
-                          : 'hover:scale-[1.02] active:scale-[0.98]'
-                      }`}
-                      onClick={startDailyChallenge}
-                    >
-                      <span className="flex flex-col items-center justify-center leading-tight">
-                        <span className="text-lg sm:text-xl">Daily Challenge</span>
-                        <span className="mt-0.5 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-400">
-                          {formatDailyDate(todayDailyKey)}
-                        </span>
-                      </span>
-                    </Button>
-                    <div className="mt-2 min-h-[2.5rem] sm:min-h-[2.25rem] flex items-start justify-center">
-                      <p className={`text-xs sm:text-sm font-bold leading-snug text-zinc-400 transition-opacity duration-200 ${
-                        showDailyCompletedMessage ? 'opacity-100' : 'opacity-0'
-                      }`}>
-                        You've already played today's daily challenge. Wait until tomorrow for a new one.
-                      </p>
-                    </div>
-                    <div className="h-4 sm:h-8 w-full shrink-0" />
+                    <div className="h-24 sm:h-28 w-full shrink-0" />
                   </div>
                 </div>
               </Card>
@@ -1128,13 +834,6 @@ export default function Game() {
                         <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Start New Chain</h3>
                         <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
                           A random active player starts the chain. Keep linking valid teammates for as long as you can.
-                        </p>
-                      </section>
-
-                      <section>
-                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Daily Challenge</h3>
-                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
-                          Everyone gets the same 24-player chain each day in the same order. You get one attempt to complete it.
                         </p>
                       </section>
 
@@ -1188,33 +887,6 @@ export default function Game() {
                     </Button>
                   </div>
 
-                  <div className="leaderboard-tabs mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-1">
-                    {(['daily', 'overall'] as LeaderboardKind[]).map(kind => (
-                      <button
-                        key={kind}
-                        type="button"
-                        onClick={() => setLeaderboardKind(kind)}
-                        className={`h-9 rounded-xl text-[11px] sm:text-sm font-black transition ${
-                          leaderboardKind === kind
-                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-950/40'
-                            : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
-                        }`}
-                      >
-                        {kind === 'daily' ? 'Daily Challenge' : 'Overall'}
-                      </button>
-                    ))}
-                  </div>
-                  {leaderboardKind === 'daily' && (
-                    <div className="leaderboard-date mb-3 text-center">
-                      <p className="text-xs sm:text-sm font-black uppercase tracking-widest text-zinc-100">
-                        {formatDailyDate(todayDailyKey)}
-                      </p>
-                      <p className="mt-1 text-[10px] sm:text-xs font-bold leading-snug text-zinc-500">
-                        Only scores from today's daily challenge count
-                      </p>
-                    </div>
-                  )}
-
                   <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/60">
                     <div className="leaderboard-panel-inner flex h-full flex-col p-3 sm:p-4">
                       {leaderboardLoading && (
@@ -1224,22 +896,22 @@ export default function Game() {
                         </div>
                       )}
 
-                      {!leaderboardLoading && activeLeaderboardError && (
+                      {!leaderboardLoading && leaderboardError && (
                         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                           <AlertTriangle className="mb-3 size-8 text-amber-500" />
                           <p className="text-sm font-bold text-zinc-300">Leaderboard unavailable</p>
-                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">{activeLeaderboardError}</p>
+                          <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">{leaderboardError}</p>
                         </div>
                       )}
 
-                      {!leaderboardLoading && !activeLeaderboardError && activeLeaderboard.length === 0 && (
+                      {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
                         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                           <p className="text-sm font-bold text-zinc-300">No scores yet</p>
                           <p className="mt-2 max-w-xs text-xs leading-relaxed text-zinc-500">Be the first chain on the board.</p>
                         </div>
                       )}
 
-                      {!leaderboardLoading && !activeLeaderboardError && activeLeaderboard.length > 0 && (
+                      {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
                         <div className="flex h-full min-h-0 flex-col">
                           <div className="leaderboard-table-header grid shrink-0 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/80 px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                             <span>Rank</span>
@@ -1248,7 +920,7 @@ export default function Game() {
                           </div>
                           <div className="grid min-h-0 flex-1 grid-rows-[repeat(10,minmax(0,1fr))]">
                             {Array.from({ length: 10 }).map((_, idx) => {
-                              const entry = activeLeaderboard[idx];
+                              const entry = leaderboard[idx];
 
                               return (
                                 <div key={entry?.id ?? `empty-${idx}`} className="leaderboard-table-row grid min-h-0 grid-cols-[3rem_1fr_4.5rem] items-center gap-3 border-b border-zinc-800/50 px-2 last:border-b-0">
@@ -1384,46 +1056,35 @@ export default function Game() {
              <CardHeader className="text-center pt-3 pb-0">
                <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500 mx-auto mb-1 animate-bounce" />
                <CardTitle className="text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200 font-black tracking-tight">
-                 {gameMode === 'daily' ? 'DAILY COMPLETE!' : 'THAT&apos;S ALL, FOLKS!'}
+                 THAT&apos;S ALL, FOLKS!
                </CardTitle>
              </CardHeader>
              
              <CardContent className="text-center pb-2 pt-1 px-4">
                <p className="text-zinc-400 text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-1 max-w-xs mx-auto leading-relaxed">
-                 {gameMode === 'daily'
-                   ? `You completed the ${formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())} chain.`
-                   : 'You completely ran out of valid teammates to connect!'}
+                 You completely ran out of valid teammates to connect!
                </p>
                <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-0.5">
-                 {gameMode === 'daily' ? 'Daily Challenge' : 'Final Max Chain Length'}
+                 Final Max Chain Length
                </div>
                <div className="text-5xl sm:text-6xl md:text-7xl font-black text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] leading-none -mb-1">
-                 {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+                 {chainLength}
                </div>
-               {gameMode === 'daily' && (
-                 <p className="mt-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-500">
-                   {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
-                 </p>
-               )}
              </CardContent>
              
-             <CardFooter className={`grid gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5 ${
-               gameMode === 'daily' ? 'grid-cols-1' : 'grid-cols-2'
-             }`}>
-               {gameMode !== 'daily' && (
-                 <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
-                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-                 </Button>
-               )}
+             <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-zinc-800/50 bg-amber-500/5">
+               <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
+                 <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+               </Button>
                <Button className="h-11 sm:h-12 bg-amber-600 text-white hover:bg-amber-500 font-bold shadow-lg shadow-amber-900/20 rounded-2xl" onClick={handleShare}>
-                 <Share className="w-4 h-4 mr-2" /> {gameMode === 'daily' ? 'Share' : 'Share Victory'}
+                 <Share className="w-4 h-4 mr-2" /> Share Victory
                </Button>
              </CardFooter>
            </Card>
 
            <div className="flex-1 flex flex-col min-h-0">
              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 text-center flex-shrink-0">
-               {gameMode === 'daily' ? 'Chain History' : 'Winning Chain History'}
+               Winning Chain History
              </h3>
              <div className="bg-zinc-900/80 border border-zinc-800 shadow-sm rounded-3xl overflow-hidden flex-1 flex flex-col min-h-0">
                <div className="overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-2 sm:px-4 pt-2 pb-0 flex-1 relative min-h-0" ref={scrollContainerRef}>
@@ -1502,7 +1163,7 @@ export default function Game() {
             <Card className="w-full border-zinc-800 bg-zinc-900/90 shadow-2xl mb-1 overflow-hidden relative flex-shrink-0 rounded-3xl">
               <div className="absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-80"></div>
               
-              <CardHeader className={`text-center ${gameMode === 'daily' ? 'pt-2 pb-0' : 'pt-3 pb-0'}`}>
+              <CardHeader className="text-center pt-3 pb-0">
                 <CardTitle className="text-2xl sm:text-3xl md:text-4xl text-zinc-100 font-black tracking-tight">
                   Chain Broken
                 </CardTitle>
@@ -1510,28 +1171,17 @@ export default function Game() {
               
               <CardContent className="text-center pb-0 px-4 pt-0">
                 <div className="text-sm sm:text-base font-black text-zinc-500 uppercase tracking-widest mb-0.5">
-                  {gameMode === 'daily' ? 'Daily Challenge' : 'Final Chain Length'}
+                  Final Chain Length
                 </div>
-                <div className={`score-number text-blue-500 leading-none -mb-1 ${
-                  gameMode === 'daily' ? 'text-4xl sm:text-5xl md:text-6xl' : 'text-5xl sm:text-6xl md:text-7xl'
-                }`}>
-                  {gameMode === 'daily' ? `${chainLength}/${DAILY_CHAIN_LENGTH}` : chainLength}
+                <div className="score-number text-5xl sm:text-6xl md:text-7xl text-blue-500 leading-none -mb-1">
+                  {chainLength}
                 </div>
-                {gameMode === 'daily' && (
-                  <p className="mt-2 text-sm sm:text-base font-black uppercase tracking-widest text-zinc-500">
-                    {formatDailyDate(dailyChallenge?.dateKey ?? getDailyDateKey())}
-                  </p>
-                )}
               </CardContent>
               
-              <CardFooter className={`grid gap-2 px-3 sm:px-4 -mt-2 border-t border-zinc-800/50 bg-black/20 ${
-                gameMode === 'daily' ? 'grid-cols-1' : 'grid-cols-2'
-              } ${gameMode === 'daily' ? 'py-1.5' : 'py-2'}`}>
-                {gameMode !== 'daily' && (
-                  <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
-                    <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-                  </Button>
-                )}
+              <CardFooter className="grid grid-cols-2 gap-2 px-3 sm:px-4 -mt-2 border-t border-zinc-800/50 bg-black/20 py-2">
+                <Button variant="outline" className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 h-11 sm:h-12 font-bold rounded-2xl" onClick={startGame}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                </Button>
                 <Button className="h-11 sm:h-12 bg-blue-600 text-white hover:bg-blue-500 font-bold rounded-2xl" onClick={handleShare}>
                   <Share className="w-4 h-4 mr-2" /> Share
                 </Button>
