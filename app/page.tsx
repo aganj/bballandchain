@@ -254,7 +254,7 @@ const getValidNextPlayers = (gameData: GameData, currentVisited: string[]) => {
 export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard'>('start');
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'victory' | 'about' | 'leaderboard' | 'privacy'>('start');
   const [previousScreen, setPreviousScreen] = useState<'start' | 'gameover' | 'victory'>('start');
   
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -785,6 +785,13 @@ export default function Game() {
               >
                 
                 <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
+                <button
+                  type="button"
+                  onClick={() => setGameState('privacy')}
+                  className="pointer-events-auto absolute bottom-3 left-4 z-20 text-left text-[10px] sm:bottom-4 sm:left-6 sm:text-xs font-bold tracking-wide text-zinc-500 underline decoration-zinc-700 underline-offset-4 transition hover:text-zinc-300 hover:decoration-zinc-400"
+                >
+                  Privacy Policy
+                </button>
                 <p className="pointer-events-none absolute bottom-3 right-4 z-20 text-right text-[10px] sm:bottom-4 sm:right-6 sm:text-xs font-bold tracking-wide text-zinc-600">
                   © 2026 BBall and Chain
                 </p>
@@ -854,6 +861,60 @@ export default function Game() {
                       >
                         @bballandchain
                       </a>
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Privacy Screen */}
+        {gameState === 'privacy' && (
+          <div className="flex flex-col flex-1 h-full w-full animate-in fade-in zoom-in duration-500 pb-4 sm:pb-6">
+            <div className="relative w-full h-full flex flex-col flex-1 min-h-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+              <Card 
+                className="w-full h-full flex-1 border-zinc-800/80 bg-zinc-900/60 backdrop-blur-xl shadow-2xl relative overflow-hidden !rounded-3xl flex flex-col isolate"
+                style={{ transform: 'translateZ(0)' }}
+              >
+                <div className="absolute inset-0 bg-[url('/background.jpg')] bg-cover bg-center bg-no-repeat opacity-20 blur-sm pointer-events-none !rounded-3xl"></div>
+                <div className="relative z-10 flex flex-col items-center justify-center flex-1 p-5 sm:p-8 text-center h-full min-h-0">
+                  <div className="flex w-full flex-1 flex-col items-center justify-center px-1">
+                    <CardTitle className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 tracking-tight leading-[1.1] mb-3 sm:mb-6">
+                      Privacy Policy
+                    </CardTitle>
+                    <div className="w-full max-w-sm sm:max-w-lg space-y-2 sm:space-y-4 text-left">
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">What we collect</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          If you join the leaderboard, we save the name you enter, your score, and the time it was submitted.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Local storage</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          Your best score is stored on your device so the game can show it back to you.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Services</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          Leaderboard data is stored with Supabase. Names may be checked with PurgoMalum before they are saved.
+                        </p>
+                      </section>
+
+                      <section>
+                        <h3 className="text-base sm:text-lg font-black tracking-wide text-blue-300 mb-0.5 sm:mb-1.5">Contact</h3>
+                        <p className="text-zinc-400 text-sm sm:text-base leading-snug sm:leading-relaxed">
+                          For privacy questions or leaderboard removal requests, contact @bballandchain on Instagram.
+                        </p>
+                      </section>
+                    </div>
+                    <p className="mt-3 sm:mt-6 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      Last updated June 30, 2026
                     </p>
                   </div>
                 </div>
